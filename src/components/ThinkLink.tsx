@@ -224,7 +224,7 @@ const ThinkLink: React.FC = () => {
               onChange={(e) => setCurrentCommand(e.target.value)}
               onKeyDown={handleKeyDown}
               className={`flex-1 ml-2 bg-transparent outline-none caret-emerald-400 font-mono placeholder-${isDarkMode ? 'gray-600' : 'gray-500'}`}
-              placeholder="Type your command..."
+              placeholder="Use Natural language to give commands"
               autoFocus
               spellCheck={false}
             />

@@ -9,6 +9,16 @@ export interface Task {
   type?: 'task' | 'event' | 'note';
   status: 'pending' | 'done';
 }
+
+interface TrainingData {
+  input: string;
+  expectedOutput: {
+    priority: 'high' | 'medium' | 'low';
+    category: string;
+    type: 'task' | 'event' | 'note';
+  };
+}
+
 export class ThinkLinkNLP {
   private keywords = {
     priority: {
@@ -30,7 +40,19 @@ export class ThinkLinkNLP {
       'show', 'list', 'complete', 'done', 'finish', 'edit',
       'view', 'schedule', 'organize'
     ],
-    contextual: ['for', 'by', 'at', 'on', 'in', 'with', 'to']
+    contextual: ['for', 'by', 'at', 'on', 'in', 'with', 'to'],
+    relationships: [
+      'with', 'for', 'team', 'client', 'boss', 'colleague', 'partner',
+      'department', 'group', 'stakeholder', 'customer'
+    ],
+    locations: [
+      'office', 'home', 'remote', 'online', 'virtual', 'room', 
+      'building', 'site', 'location'
+    ],
+    urgencyModifiers: [
+      'before', 'after', 'deadline', 'due', 'must', 'should', 
+      'need to', 'required', 'mandatory'
+    ]
   };
 
   private sentimentWeights = {
@@ -38,20 +60,164 @@ export class ThinkLinkNLP {
     negative: ['worried', 'concerned', 'bad', 'difficult', 'hard']
   };
 
-  private tokenize(input: string): string[] {
-    return input.toLowerCase()
-      .replace(/[.,/#$%^&*;:{}=_`~()\-/]/g, '')
-      .split(' ')
-      .filter(token => token.length > 0);
+  // Neural network weights
+  private neuralWeights = {
+    priority: new Map<string, number>(),
+    category: new Map<string, number>(),
+    type: new Map<string, number>()
+  };
+
+  private learningRate = 0.1;
+  private trainingData: TrainingData[] = [];
+
+  // Add context awareness
+  private contextPatterns = {
+    deadline: /by|before|due|until|deadline/i,
+    dependency: /after|following|depends on|blocked by/i,
+    recurring: /every|daily|weekly|monthly|yearly/i,
+    duration: /for|during|takes|hours|minutes|days/i
+  };
+
+  constructor() {
+    this.initializeWeights();
   }
 
+  private initializeWeights(): void {
+    // Initialize weights for all known words
+    const allWords = new Set([
+      ...this.keywords.priority.high,
+      ...this.keywords.priority.medium,
+      ...this.keywords.priority.low,
+      ...this.keywords.categories,
+      ...this.keywords.timeIndicators,
+      ...this.keywords.actions,
+      ...this.keywords.contextual,
+      ...this.sentimentWeights.positive,
+      ...this.sentimentWeights.negative
+    ]);
+
+    allWords.forEach(word => {
+      this.neuralWeights.priority.set(word, Math.random() * 2 - 1);
+      this.neuralWeights.category.set(word, Math.random() * 2 - 1);
+      this.neuralWeights.type.set(word, Math.random() * 2 - 1);
+    });
+  }
+
+  public train(input: string, expectedOutput: TrainingData['expectedOutput']): void {
+    this.trainingData.push({ input, expectedOutput });
+    
+    const tokens = this.tokenize(input);
+    const prediction = this.predict(tokens);
+    
+    // Update weights based on prediction error
+    tokens.forEach(token => {
+      if (this.neuralWeights.priority.has(token)) {
+        const error = (expectedOutput.priority === 'high' ? 1 : 0) - prediction.priority;
+        const currentWeight = this.neuralWeights.priority.get(token) || 0;
+        this.neuralWeights.priority.set(
+          token,
+          currentWeight + this.learningRate * error
+        );
+      }
+
+      if (this.neuralWeights.category.has(token)) {
+        const error = (this.keywords.categories.indexOf(expectedOutput.category) / 
+          this.keywords.categories.length) - prediction.category;
+        const currentWeight = this.neuralWeights.category.get(token) || 0;
+        this.neuralWeights.category.set(
+          token,
+          currentWeight + this.learningRate * error
+        );
+      }
+    });
+  }
+
+  private predict(tokens: string[]): {
+    priority: number;
+    category: number;
+    type: number;
+  } {
+    const prediction = {
+      priority: 0,
+      category: 0,
+      type: 0
+    };
+
+    tokens.forEach(token => {
+      prediction.priority += this.neuralWeights.priority.get(token) || 0;
+      prediction.category += this.neuralWeights.category.get(token) || 0;
+      prediction.type += this.neuralWeights.type.get(token) || 0;
+    });
+
+    // Apply activation function (sigmoid)
+    return {
+      priority: this.sigmoid(prediction.priority),
+      category: this.sigmoid(prediction.category),
+      type: this.sigmoid(prediction.type)
+    };
+  }
+
+  private sigmoid(x: number): number {
+    return 1 / (1 + Math.exp(-x));
+  }
+
+  // Modify existing extractPriority to use neural network prediction
   private extractPriority(tokens: string[]): 'high' | 'medium' | 'low' {
+    const prediction = this.predict(tokens);
+    
+    // Combine neural network prediction with rule-based approach
+    const ruleBasedPriority = this.extractPriorityRuleBased(tokens);
+    const neuralPriority = prediction.priority > 0.66 ? 'high' : 
+                          prediction.priority > 0.33 ? 'medium' : 'low';
+    
+    // Weight both approaches (70% neural, 30% rule-based)
+    return Math.random() < 0.7 ? neuralPriority : ruleBasedPriority;
+  }
+
+  // Rename original extractPriority to extractPriorityRuleBased
+  private extractPriorityRuleBased(tokens: string[]): 'high' | 'medium' | 'low' {
     for (const token of tokens) {
       if (this.keywords.priority.high.includes(token)) return 'high';
       if (this.keywords.priority.medium.includes(token)) return 'medium';
       if (this.keywords.priority.low.includes(token)) return 'low';
     }
     return 'medium';
+  }
+
+  // Add method to get training statistics
+  public getTrainingStats(): {
+    samplesCount: number;
+    averageAccuracy: number;
+  } {
+    const totalSamples = this.trainingData.length;
+    if (totalSamples === 0) {
+      return { samplesCount: 0, averageAccuracy: 0 };
+    }
+
+    let correctPredictions = 0;
+    this.trainingData.forEach(sample => {
+      const tokens = this.tokenize(sample.input);
+      const prediction = this.predict(tokens);
+      
+      // Simple accuracy check for priority
+      const predictedPriority = prediction.priority > 0.66 ? 'high' : 
+                               prediction.priority > 0.33 ? 'medium' : 'low';
+      if (predictedPriority === sample.expectedOutput.priority) {
+        correctPredictions++;
+      }
+    });
+
+    return {
+      samplesCount: totalSamples,
+      averageAccuracy: correctPredictions / totalSamples
+    };
+  }
+
+  private tokenize(input: string): string[] {
+    return input.toLowerCase()
+      .replace(/[.,/#$%^&*;:{}=_`~()\-/]/g, '')
+      .split(' ')
+      .filter(token => token.length > 0);
   }
 
   private extractCategory(tokens: string[]): string {
@@ -100,15 +266,77 @@ export class ThinkLinkNLP {
       .join(' ');
   }
 
+  // Add smart date parsing
+  private extractSmartDate(tokens: string[]): { due?: Date; recurring?: string } {
+    const text = tokens.join(' ');
+    const result: { due?: Date; recurring?: string } = {};
+    
+    // Handle recurring patterns
+    if (text.match(/every (day|week|month|year)/i)) {
+      result.recurring = text.match(/every (day|week|month|year)/i)![1];
+    }
+
+    // Handle relative dates
+    if (text.includes('next')) {
+      const today = new Date();
+      if (text.includes('week')) {
+        result.due = new Date(today.setDate(today.getDate() + 7));
+      } else if (text.includes('month')) {
+        result.due = new Date(today.setMonth(today.getMonth() + 1));
+      }
+    }
+
+    // Handle specific weekdays
+    const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const mentionedDay = weekdays.find(day => text.toLowerCase().includes(day));
+    if (mentionedDay) {
+      result.due = this.getNextWeekday(mentionedDay);
+    }
+
+    return result;
+  }
+
+  // Add smart priority calculation
+  private calculateSmartPriority(tokens: string[]): 'high' | 'medium' | 'low' {
+    const text = tokens.join(' ');
+    let score = 0;
+
+    // Check urgency indicators
+    this.keywords.urgencyModifiers.forEach(modifier => {
+      if (text.includes(modifier)) score += 2;
+    });
+
+    // Check deadline proximity
+    const dateInfo = this.extractSmartDate(tokens);
+    if (dateInfo.due) {
+      const daysUntilDue = Math.ceil((dateInfo.due.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+      if (daysUntilDue <= 2) score += 3;
+      else if (daysUntilDue <= 7) score += 2;
+    }
+
+    // Check relationship importance
+    this.keywords.relationships.forEach(rel => {
+      if (text.includes(rel)) score += 1;
+    });
+
+    // Consider sentiment
+    const sentiment = this.analyzeSentiment(tokens);
+    score += sentiment * 2;
+
+    return score >= 5 ? 'high' : score >= 3 ? 'medium' : 'low';
+  }
+
+  // Enhanced processCommand method
   public processCommand(input: string): {
     action: string;
     task?: Task;
     message: string;
+    suggestions?: string[];
   } {
     const tokens = this.tokenize(input);
-    const action = tokens.find(token => 
-      this.keywords.actions.includes(token)
-    ) || 'create';
+    const text = tokens.join(' ');
+    const action = tokens.find(token => this.keywords.actions.includes(token)) || 'create';
+    const suggestions: string[] = [];
 
     if (action === 'list' || action === 'show') {
       return {
@@ -136,6 +364,42 @@ export class ThinkLinkNLP {
       return {
         action: 'calendar',
         message: 'Calendar functionality is under development'
+      };
+    }
+
+    if (action === 'create') {
+      const dateInfo = this.extractSmartDate(tokens);
+      const smartPriority = this.calculateSmartPriority(tokens);
+      const category = this.extractCategory(tokens);
+
+      // Generate smart suggestions
+      if (!dateInfo.due) {
+        suggestions.push("Consider adding a due date for better task management");
+      }
+      if (category === 'personal' && text.includes('work')) {
+        suggestions.push("This might be better categorized as a 'work' task");
+      }
+      if (smartPriority === 'high' && !tokens.some(t => this.keywords.priority.high.includes(t))) {
+        suggestions.push("This task seems important. Consider marking it as high priority");
+      }
+
+      const task: Task = {
+        id: Date.now().toString(),
+        content: this.extractTaskContent(tokens),
+        priority: smartPriority,
+        category,
+        created: new Date(),
+        due: dateInfo.due,
+        context: this.extractContext(tokens),
+        status: 'pending',
+        type: 'task'
+      };
+
+      return {
+        action: 'create',
+        task,
+        message: `Created new ${task.priority} priority ${task.type} in ${task.category} category`,
+        suggestions: suggestions.length > 0 ? suggestions : undefined
       };
     }
 
@@ -257,6 +521,40 @@ export class ThinkLinkNLP {
       case 'low': return '🟢';
       default: return '⚪';
     }
+  }
+
+  // Helper method to get next occurrence of a weekday
+  private getNextWeekday(dayName: string): Date {
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const today = new Date();
+    const targetDay = days.indexOf(dayName.toLowerCase());
+    const todayDay = today.getDay();
+    let daysUntilTarget = targetDay - todayDay;
+    if (daysUntilTarget <= 0) daysUntilTarget += 7;
+    return new Date(today.setDate(today.getDate() + daysUntilTarget));
+  }
+
+  // Enhanced context extraction
+  private extractContext(tokens: string[]): string {
+    const text = tokens.join(' ');
+    const contexts: string[] = [];
+
+    // Extract location context
+    const location = this.keywords.locations.find(loc => text.includes(loc));
+    if (location) contexts.push(`at: ${location}`);
+
+    // Extract relationship context
+    const relationship = this.keywords.relationships.find(rel => text.includes(rel));
+    if (relationship) contexts.push(`with: ${relationship}`);
+
+    // Extract temporal context
+    Object.entries(this.contextPatterns).forEach(([type, pattern]) => {
+      if (text.match(pattern)) {
+        contexts.push(`${type}: ${text.match(pattern)![0]}`);
+      }
+    });
+
+    return contexts.join('; ');
   }
 }
 
