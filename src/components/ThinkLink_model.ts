@@ -69,7 +69,7 @@ export class ThinkLinkNLP {
       case 'today':
         return today;
       case 'tomorrow':
-        return new Date(today.setDate(today.getDate() + 1));
+        return new Date(today.setDate(today.getDate() + 1)); 
       case 'next week':
         return new Date(today.setDate(today.getDate() + 7));
       case 'next month':
