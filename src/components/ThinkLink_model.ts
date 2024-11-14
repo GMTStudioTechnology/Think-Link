@@ -1,3 +1,5 @@
+import { trainingData } from '../data/trainingData';
+
 export interface Task {
   id: string;
   content: string;
@@ -68,7 +70,7 @@ export class ThinkLinkNLP {
   };
 
   private learningRate = 0.1;
-  private trainingData: TrainingData[] = [];
+  private trainingDataSet: TrainingData[] = trainingData;
 
   // Add context awareness
   private contextPatterns = {
@@ -80,6 +82,7 @@ export class ThinkLinkNLP {
 
   constructor() {
     this.initializeWeights();
+    this.trainModelWithDataset();
   }
 
   private initializeWeights(): void {
@@ -103,14 +106,26 @@ export class ThinkLinkNLP {
     });
   }
 
+  private trainModelWithDataset(epochs: number = 100): void {
+    for (let epoch = 0; epoch < epochs; epoch++) {
+      this.trainingDataSet.forEach(sample => {
+        this.train(sample.input, sample.expectedOutput);
+      });
+
+      if ((epoch + 1) % 10 === 0) {
+        const stats = this.getTrainingStats();
+        console.log(`Epoch ${epoch + 1}: Accuracy = ${(stats.averageAccuracy * 100).toFixed(2)}%`);
+      }
+    }
+  }
+
   public train(input: string, expectedOutput: TrainingData['expectedOutput']): void {
-    this.trainingData.push({ input, expectedOutput });
-    
     const tokens = this.tokenize(input);
     const prediction = this.predict(tokens);
-    
+
     // Update weights based on prediction error
     tokens.forEach(token => {
+      // Update Priority Weights
       if (this.neuralWeights.priority.has(token)) {
         const target = this.encodePriority(expectedOutput.priority);
         const error = target - prediction.priority;
@@ -121,6 +136,7 @@ export class ThinkLinkNLP {
         );
       }
 
+      // Update Category Weights
       if (this.neuralWeights.category.has(token)) {
         const target = this.encodeCategory(expectedOutput.category);
         const error = target - prediction.category;
@@ -131,6 +147,7 @@ export class ThinkLinkNLP {
         );
       }
 
+      // Update Type Weights
       if (this.neuralWeights.type.has(token)) {
         const target = this.encodeType(expectedOutput.type);
         const error = target - prediction.type;
@@ -224,13 +241,13 @@ export class ThinkLinkNLP {
     samplesCount: number;
     averageAccuracy: number;
   } {
-    const totalSamples = this.trainingData.length;
+    const totalSamples = this.trainingDataSet.length;
     if (totalSamples === 0) {
       return { samplesCount: 0, averageAccuracy: 0 };
     }
 
     let correctPredictions = 0;
-    this.trainingData.forEach(sample => {
+    this.trainingDataSet.forEach(sample => {
       const tokens = this.tokenize(sample.input);
       const prediction = this.predict(tokens);
       
@@ -279,6 +296,14 @@ export class ThinkLinkNLP {
         return new Date(today.setDate(today.getDate() + 7));
       case 'next month':
         return new Date(today.setMonth(today.getMonth() + 1));
+      case 'monday':
+      case 'tuesday':
+      case 'wednesday':
+      case 'thursday':
+      case 'friday':
+      case 'saturday':
+      case 'sunday':
+        return this.getNextWeekday(dateIndicator);
       default:
         return undefined;
     }
@@ -600,20 +625,6 @@ export class ThinkLinkNLP {
       const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
-  }
-
-  // Enhanced training with multiple epochs and validation
-  public trainModel(epochs: number = 100): void {
-    for (let epoch = 0; epoch < epochs; epoch++) {
-      this.trainingData.forEach(sample => {
-        this.train(sample.input, sample.expectedOutput);
-      });
-
-      if (epoch % 10 === 0) {
-        const stats = this.getTrainingStats();
-        console.log(`Epoch ${epoch}: Accuracy = ${(stats.averageAccuracy * 100).toFixed(2)}%`);
-      }
-    }
   }
 
   // Calendar integration method to schedule tasks
