@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThinkLinkNLP, Task } from './ThinkLink_model';
-import { FiMenu, FiX, FiPlus, FiSun, FiMoon, FiFilter, FiCheck, FiTrash2, FiEdit2 } from 'react-icons/fi';
+import { FiMenu, FiX, FiPlus, FiFilter, FiCheck, FiTrash2, FiEdit2 } from 'react-icons/fi';
+import classNames from 'classnames';
 
 interface CommandResult {
   action: 'create' | 'list' | 'delete' | 'update' | 'complete' | string;
@@ -28,9 +29,6 @@ const ThinkLink: React.FC = () => {
   // State for canvas
   const [canvasVisible, setCanvasVisible] = useState(false);
   const [canvasContent, setCanvasContent] = useState('');
-  
-  // State for theme (light/dark/system)
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('dark');
   
   // Filter State
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -208,10 +206,6 @@ const ThinkLink: React.FC = () => {
     setCanvasVisible(prev => !prev);
   };
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : prev === 'light' ? 'system' : 'dark');
-  };
-
   // Define separate spring transitions for expanding and collapsing
   const expandTransition = {
     type: 'spring' as const,
@@ -239,9 +233,6 @@ const ThinkLink: React.FC = () => {
     }
   };
 
-  // Determine theme classes
-  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
   // Add tutorial navigation
   const nextTutorialStep = () => {
     if (currentTutorialStep < tutorials.length - 1) {
@@ -259,59 +250,57 @@ const ThinkLink: React.FC = () => {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          className={`
-            absolute 
-            bottom-24  // Position above the input area
-            left-6 
-            w-96 
-            bg-${isDarkMode ? 'gray-800/90' : 'white/90'} 
-            backdrop-blur-sm
-            rounded-lg 
-            shadow-xl 
-            p-6 
-            border 
-            border-${isDarkMode ? 'gray-700' : 'gray-200'}/50
-            z-50
-          `}
+          className={classNames(
+            "absolute bottom-24 left-6 w-96 backdrop-blur-sm rounded-lg shadow-xl p-6 z-50 bg-black border border-white text-white"
+          )}
         >
           <div className="flex justify-between items-center mb-4">
-            <h3 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-semibold`}>
+            <h3 className={`font-semibold`}>
               Tutorial ({currentTutorialStep + 1}/{tutorials.length})
             </h3>
             <button
               onClick={() => setShowTutorial(false)}
-              className={`text-${isDarkMode ? 'gray-400' : 'gray-600'} hover:text-${isDarkMode ? 'white' : 'black'}`}
+              className={`hover:text-white`}
             >
               <FiX size={20} />
             </button>
           </div>
           <div className="space-y-4">
-            <h4 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-medium`}>
+            <h4 className={`font-medium`}>
               {tutorials[currentTutorialStep].title}
             </h4>
-            <p className={`text-${isDarkMode ? 'gray-300' : 'gray-600'}`}>
+            <p className={`text-white`}>
               {tutorials[currentTutorialStep].description}
             </p>
-            <div className={`bg-${isDarkMode ? 'gray-900/50' : 'gray-100/50'} p-3 rounded-md backdrop-blur-sm`}>
-              <code className={`text-${isDarkMode ? 'green-400' : 'green-600'}`}>
+            <div className={classNames(
+              "p-3 rounded-md backdrop-blur-sm",
+              {
+                "bg-black text-green-400": true,
+                "bg-black text-green-600 border border-white": true
+              }
+            )}>
+              <code>
                 {tutorials[currentTutorialStep].example}
               </code>
             </div>
             <div className="flex justify-between">
               <button
                 onClick={() => currentTutorialStep > 0 && setCurrentTutorialStep(prev => prev - 1)}
-                className={`px-4 py-2 rounded-md ${
-                  currentTutorialStep > 0 
-                    ? `bg-${isDarkMode ? 'gray-700' : 'gray-200'} hover:bg-${isDarkMode ? 'gray-600' : 'gray-300'}` 
-                    : 'opacity-50 cursor-not-allowed'
-                } transition-colors`}
+                className={classNames(
+                  "px-4 py-2 rounded-md transition-colors",
+                  {
+                    "bg-black hover:bg-black text-white border hover:border-white": currentTutorialStep > 0,
+                    "bg-black hover:bg-black text-white hover:border-white ": currentTutorialStep > 0,
+                    "opacity-50 cursor-not-allowed": currentTutorialStep === 0
+                  }
+                )}
                 disabled={currentTutorialStep === 0}
               >
                 Previous
               </button>
               <button
                 onClick={nextTutorialStep}
-                className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors`}
+                className="px-4 py-2 bg-black text-white rounded-md border hover:border-white transition-colors"
               >
                 {currentTutorialStep < tutorials.length - 1 ? 'Next' : 'Got it!'}
               </button>
@@ -326,21 +315,9 @@ const ThinkLink: React.FC = () => {
   const renderTutorialButton = () => (
     <button
       onClick={() => setShowTutorial(true)}
-      className={`
-        absolute 
-        bottom-24 
-        left-6 
-        bg-${isDarkMode ? 'blue-600' : 'blue-500'} 
-        text-white 
-        p-3 
-        rounded-full 
-        shadow-lg 
-        hover:bg-${isDarkMode ? 'blue-700' : 'blue-600'} 
-        focus:outline-none 
-        transition-colors 
-        duration-300
-        z-50
-      `}
+      className={classNames(
+        "absolute bottom-24 left-6 text-black bg-white p-3 rounded-full shadow-lg focus:outline-none hover:opacity-80 z-50"
+      )}
       title="Show Tutorial"
     >
       <FiMenu size={20} />
@@ -348,15 +325,15 @@ const ThinkLink: React.FC = () => {
   );
 
   return (
-    <div className={`${isDarkMode ? 'bg-black text-white' : 'bg-white text-black'} h-screen w-full p-6 flex transition-colors duration-500 overflow-hidden`}>
+    <div className="h-screen w-full p-6 flex transition-colors duration-500 overflow-hidden bg-black text-white">
       <motion.div
         variants={terminalVariants}
         animate={canvasVisible ? 'expanded' : 'collapsed'}
         initial="collapsed"
-        className={`h-[calc(100vh-3rem)] backdrop-blur-xl bg-${isDarkMode ? 'black/80' : 'white/80'} rounded-2xl shadow-2xl border border-${isDarkMode ? 'gray-800' : 'gray-300'}/50 overflow-hidden flex flex-col flex-1`}
+        className="h-[calc(100vh-3rem)] backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col flex-1 bg-black border border-white"
       >
         {/* Terminal Header */}
-        <div className={`px-6 py-3 flex items-center justify-between border-b border-${isDarkMode ? 'gray-800' : 'gray-300'}/50 backdrop-blur-sm`}>
+        <div className="px-6 py-3 flex items-center justify-between border-b border-white">
           <div className="flex items-center space-x-6">
             <div className="flex space-x-2">
               <motion.div 
@@ -378,25 +355,22 @@ const ThinkLink: React.FC = () => {
             <div className="text-white text-sm font-medium tracking-wide">ThinkLink Terminal</div>
           </div>
           <div className="flex items-center space-x-4">
-            <button onClick={toggleTheme} className="text-white hover:text-yellow-400 transition-colors" title="Toggle Theme">
-              {isDarkMode ? <FiSun size={18} /> : <FiMoon size={18} />}
-            </button>
             <motion.button 
-              whileHover={{ scale: 1.1, color: '#fff' }}
+              whileHover={{ scale: 1.1 }}
               transition={expandTransition}
-              className="text-white"
+              className="text-white hover:opacity-80"
               title="Minimize"
             >−</motion.button>
             <motion.button 
-              whileHover={{ scale: 1.1, color: '#fff' }}
+              whileHover={{ scale: 1.1 }}
               transition={expandTransition}
-              className="text-white"
+              className="text-white hover:opacity-80"
               title="Maximize"
             >□</motion.button>
             <motion.button 
-              whileHover={{ scale: 1.1, color: '#fff' }}
+              whileHover={{ scale: 1.1 }}
               transition={expandTransition}
-              className="text-white"
+              className="text-white hover:opacity-80" 
               title="Close"
             >×</motion.button>
           </div>
@@ -435,7 +409,7 @@ const ThinkLink: React.FC = () => {
                 ) : cmd.startsWith('Suggestions:') ? (
                   <span className="text-blue-400 italic">{cmd}</span>
                 ) : (
-                  <span className={`${isDarkMode ? 'text-white' : 'text-black'}`}>{cmd}</span>
+                  <span className="text-white">{cmd}</span>
                 )}
               </motion.div>
             ))}
@@ -443,7 +417,7 @@ const ThinkLink: React.FC = () => {
         </div>
 
         {/* Input Area */}
-        <div className={`border-t border-${isDarkMode ? 'gray-800' : 'gray-300'}/50 bg-${isDarkMode ? 'gray-900/30' : 'gray-200/30'} backdrop-blur-sm p-4`}>
+        <div className="border-t border-white p-4">
           <motion.div 
             initial={false}
             animate={{ y: 0 }}
@@ -451,19 +425,23 @@ const ThinkLink: React.FC = () => {
             className="flex items-center group"
           >
             <span className="text-emerald-400">➜</span>
-            <span className={`ml-1 text-${isDarkMode ? 'blue-400' : 'blue-600'}`}>~/thinklink</span>
-            <span className={`ml-1 text-${isDarkMode ? 'gray-300' : 'gray-700'}`}>$</span>
+            <span className="ml-1 text-blue-400">~/thinklink</span>
+            <span className="ml-1 text-white">$</span>
             <input
               type="text"
               value={currentCommand}
               onChange={(e) => setCurrentCommand(e.target.value)}
               onKeyDown={handleKeyDown}
-              className={`flex-1 ml-2 bg-transparent outline-none caret-emerald-400 font-mono placeholder-${isDarkMode ? 'gray-600' : 'gray-500'}`}
+              className="flex-1 ml-2 bg-transparent outline-none caret-emerald-400 font-mono text-white"
               placeholder="Use Natural language to give commands"
               autoFocus
               spellCheck={false}
             />
-            <button onClick={handleCommandSubmit} className="ml-2 text-green-500 hover:text-green-400" title="Submit Command">
+            <button 
+              onClick={handleCommandSubmit} 
+              className="ml-2 text-green-500 hover:opacity-80" 
+              title="Submit Command"
+            >
               <FiPlus size={18} />
             </button>
           </motion.div>
@@ -478,73 +456,81 @@ const ThinkLink: React.FC = () => {
             animate={{ x: 0 }}
             exit={{ x: 800, transition: { duration: 0 } }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className={`w-[800px] h-full bg-${isDarkMode ? 'gray-800/90' : 'gray-100/90'} backdrop-blur-xl rounded-2xl shadow-2xl border border-${isDarkMode ? 'gray-700' : 'gray-300'}/50 p-6 overflow-y-auto flex flex-col`}
+            className="w-[800px] h-full backdrop-blur-xl rounded-2xl shadow-2xl p-6 overflow-y-auto flex flex-col bg-black border border-white"
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className={`text-${isDarkMode ? 'white' : 'gray-900'} text-lg font-semibold`}>ThinkLink Canvas</h2>
-              <button onClick={toggleCanvas} className={`text-${isDarkMode ? 'gray-400' : 'gray-600'} hover:text-${isDarkMode ? 'white' : 'black'}`} title="Close Canvas">
+              <h2 className="text-lg font-semibold text-white">ThinkLink Canvas</h2>
+              <button 
+                onClick={toggleCanvas} 
+                className="text-white hover:opacity-80" 
+                title="Close Canvas"
+              >
                 <FiX size={20} />
               </button>
             </div>
             <div className="bg-black p-6 rounded-lg flex-1 overflow-y-auto mb-6">
-              <pre className={`text-${isDarkMode ? 'gray-300' : 'gray-800'} whitespace-pre-wrap text-base leading-relaxed`}>
+              <pre className="whitespace-pre-wrap text-base leading-relaxed text-gray-300">
                 {canvasContent}
               </pre>
             </div>
             {/* Filters and Statistics */}
             <div className="mt-6">
-              <h3 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-medium mb-2 flex items-center`}>
+              <h3 className="font-medium mb-2 flex items-center">
                 <FiFilter className="mr-2" /> Filters
               </h3>
               <div className="flex flex-wrap gap-2">
                 <button 
                   onClick={() => setFilter('all')}
-                  className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-black' : 'border-white'} 
-                  ${filter === 'all' ? `bg-${isDarkMode ? 'gray-700' : 'gray-200'}` : `hover:bg-${isDarkMode ? 'gray-700' : 'gray-200'}`}`}
+                  className={`px-3 py-1 rounded-full border border-white ${
+                    filter === 'all' ? 'bg-white text-black' : 'text-white hover:bg-white hover:text-black'
+                  }`}
                 >
                   All
                 </button>
                 <button 
                   onClick={() => setFilter('high')}
-                  className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-red-500' : 'border-red-400'} 
-                  ${filter === 'high' ? `bg-${isDarkMode ? 'red-600' : 'red-200'}` : `hover:bg-${isDarkMode ? 'red-600' : 'red-200'}`}`}
+                  className={`px-3 py-1 rounded-full border border-white flex items-center ${
+                    filter === 'high' ? 'bg-white text-black' : 'text-white hover:bg-white hover:text-black'
+                  }`}
                 >
                   <FiCheck className="inline mr-1" /> High Priority
                 </button>
                 <button 
                   onClick={() => setFilter('medium')}
-                  className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-yellow-500' : 'border-yellow-400'} 
-                  ${filter === 'medium' ? `bg-${isDarkMode ? 'yellow-600' : 'yellow-200'}` : `hover:bg-${isDarkMode ? 'yellow-600' : 'yellow-200'}`}`}
+                  className={`px-3 py-1 rounded-full border border-white flex items-center ${
+                    filter === 'medium' ? 'bg-white text-black' : 'text-white hover:bg-white hover:text-black'
+                  }`}
                 >
                   <FiEdit2 className="inline mr-1" /> Medium Priority
                 </button>
                 <button 
                   onClick={() => setFilter('low')}
-                  className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-green-500' : 'border-green-400'} 
-                  ${filter === 'low' ? `bg-${isDarkMode ? 'green-600' : 'green-200'}` : `hover:bg-${isDarkMode ? 'green-600' : 'green-200'}`}`}
+                  className={`px-3 py-1 rounded-full border border-white flex items-center ${
+                    filter === 'low' ? 'bg-white text-black' : 'text-white hover:bg-white hover:text-black'
+                  }`}
                 >
                   <FiTrash2 className="inline mr-1" /> Low Priority
                 </button>
               </div>
             </div>
             <div className="mt-6">
-              <h3 className={`text-${isDarkMode ? 'white' : 'black'} font-medium mb-2`}>Training Statistics</h3>
+              <h3 className="font-medium mb-2">Training Statistics</h3>
               <div className="flex justify-between mb-2">
-                <span className={`text-${isDarkMode ? 'white' : 'black'}`}>Samples Count:</span>
-                <span className={`text-${isDarkMode ? 'white' : 'black'}`}>{nlpModel.current.getTrainingStats().samplesCount}</span>
+                <span>Samples Count:</span>
+                <span>{nlpModel.current.getTrainingStats().samplesCount}</span>
               </div>
               <div className="flex justify-between mb-2">
-                <span className={`text-${isDarkMode ? 'white' : 'black'}`}>Average Accuracy:</span>
-                <span className={`text-${isDarkMode ? 'white' : 'black'}`}>
+                <span>Average Accuracy:</span>
+                <span>
                   {(nlpModel.current.getTrainingStats().averageAccuracy * 100).toFixed(2)}%
                 </span>
               </div>
             </div>
             {/* Task Dependencies */}
             <div className="mt-6">
-              <h3 className={`text-${isDarkMode ? 'white' : 'black'} font-medium mb-2`}>Task Dependencies</h3>
+              <h3 className="font-medium mb-2">Task Dependencies</h3>
               <div className="bg-black p-4 rounded-lg">
-                <pre className={`text-${isDarkMode ? 'gray-300' : 'gray-800'} whitespace-pre-wrap text-base leading-relaxed`}>
+                <pre className="whitespace-pre-wrap text-base leading-relaxed text-gray-300">
                   {nlpModel.current.visualizeDependencies(tasks)}
                 </pre>
               </div>
@@ -556,7 +542,7 @@ const ThinkLink: React.FC = () => {
       {/* Toggle Button */}
       <button
         onClick={toggleCanvas}
-        className={`fixed bottom-6 right-6 bg-${isDarkMode ? 'blue-600' : 'blue-500'} text-white p-3 rounded-full shadow-lg hover:bg-${isDarkMode ? 'blue-700' : 'blue-600'} focus:outline-none transition-colors duration-300`}
+        className="fixed bottom-6 right-6 text-black bg-white p-3 rounded-full shadow-lg focus:outline-none hover:opacity-80 z-50"
         title={canvasVisible ? 'Hide Canvas' : 'Show Canvas'}
       >
         {canvasVisible ? <FiX size={20} /> : <FiMenu size={20} />}

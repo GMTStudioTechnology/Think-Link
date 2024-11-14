@@ -21,6 +21,40 @@ interface TrainingData {
   };
 }
 
+interface NLUResult {
+  mainTopic: string;
+  action: string;
+  entities: {
+    subject?: string;
+    object?: string;
+    location?: string;
+    time?: string;
+    people?: string[];
+  };
+  keywords: string[];
+  sentiment: number;
+  urgency: number;
+}
+
+interface ParsedSentence {
+  text: string;
+  score: number;
+  action?: string;
+  topic?: string;
+  entities: {
+    subject?: string;
+    object?: string;
+    time?: string;
+    location?: string;
+  };
+}
+
+type VerbPhrase = {
+  verb: string;
+  object?: string;
+  modifiers: string[];
+};
+
 export class ThinkLinkNLP {
   private keywords = {
     priority: {
@@ -79,6 +113,39 @@ export class ThinkLinkNLP {
     dependency: /after|following|depends on|blocked by/i,
     recurring: /every|daily|weekly|monthly|yearly/i,
     duration: /for|during|takes|hours|minutes|days/i
+  };
+
+  // Add extended stopwords as a class property for better performance
+  private extendedStopwords: Set<string> = new Set([
+    'the', 'is', 'in', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'for', 
+    'to', 'of', 'with', 'please', 'help', 'me', 'add', 'create', 'task', 
+    'called', 'new', 'assist', 'support', 'this', 'that', 'these', 'those',
+    'i', 'we', 'they', 'he', 'she', 'it', 'you', 'my', 'our', 'their',
+    'am', 'are', 'was', 'were', 'be', 'been', 'being'
+  ]);
+
+  private nlpPatterns = {
+    // Common sentence structures
+    subjectVerbObject: /\b(\w+)\s+(is|are|was|were|have|has|had)\s+(\w+)\b/i,
+    actionObject: /\b(create|update|review|prepare|develop|implement|fix)\s+([a-z\s]+)\b/i,
+    timeExpression: /\b(today|tomorrow|next|this|coming|following)\s+(week|month|day|morning|afternoon|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i,
+    
+    // Task-specific patterns
+    deadlinePattern: /\b(due|deadline|by|before|until)\s+([a-z0-9\s,]+)\b/i,
+    priorityPattern: /\b(urgent|asap|important|critical|high priority|low priority|medium priority)\b/i,
+    
+    // Entity patterns
+    peoplePattern: /\b(with|for|from)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/,
+    locationPattern: /\b(at|in|from)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/
+  };
+
+  private verbGroups = {
+    creation: ['create', 'develop', 'prepare', 'make', 'build', 'design', 'establish'],
+    modification: ['update', 'modify', 'change', 'revise', 'edit', 'adjust'],
+    review: ['review', 'check', 'analyze', 'evaluate', 'assess', 'examine'],
+    completion: ['complete', 'finish', 'deliver', 'submit', 'send'],
+    communication: ['discuss', 'present', 'share', 'explain', 'report'],
+    planning: ['plan', 'schedule', 'organize', 'arrange', 'coordinate']
   };
 
   constructor() {
@@ -319,7 +386,6 @@ export class ThinkLinkNLP {
   }
 
   private extractTaskContent(tokens: string[]): string {
-    // Remove known keywords and return the remaining content
     return tokens
       .filter(token => 
         !this.keywords.priority.high.includes(token) &&
@@ -455,9 +521,25 @@ export class ThinkLinkNLP {
         suggestions.push("This task seems important. Consider marking it as high priority");
       }
 
+      // Attempt to extract task name from quoted strings
+      const quotedMatch = input.match(/["“”](.+?)["“”]/);
+      let taskName: string;
+
+      if (quotedMatch && quotedMatch[1].trim().length > 0) {
+        taskName = quotedMatch[1].trim();
+      } else {
+        // Fallback to summarization if no quoted string is found
+        taskName = this.summarizeTaskName(input);
+      }
+
+      // Generate smart suggestions for the task name
+      if (!quotedMatch && taskName === 'New Task') {
+        suggestions.push("Couldn't extract a meaningful task name. Please provide more details.");
+      }
+
       const task: Task = {
         id: this.generateUniqueId(),
-        content: this.extractTaskContent(tokens),
+        content: this.capitalizeTaskName(taskName),
         priority: smartPriority,
         category,
         created: new Date(),
@@ -488,9 +570,28 @@ export class ThinkLinkNLP {
     if (tokens.includes('event') || tokens.includes('meeting')) type = 'event';
     if (tokens.includes('note') || tokens.includes('document')) type = 'note';
 
-    const task: Task = {
+    // Attempt to extract task name from quoted strings
+    const quotedMatchElse = input.match(/["“”](.+?)["“”]/);
+    let taskNameElse: string;
+
+    if (quotedMatchElse && quotedMatchElse[1].trim().length > 0) {
+      taskNameElse = quotedMatchElse[1].trim();
+    } else {
+      // Fallback to summarization if no quoted string is found
+      taskNameElse = this.summarizeTaskName(input);
+    }
+
+    // Generate smart suggestions for the task name
+    if (!quotedMatchElse && taskNameElse === 'New Task') {
+      // Optionally add suggestions or handle accordingly
+    }
+
+    // Generate smart suggestions:
+    // (Optional) Additional logic can be added here for suggestions based on taskNameElse
+
+    const taskElse: Task = {
       id: this.generateUniqueId(),
-      content: this.extractTaskContent(tokens),
+      content: this.capitalizeTaskName(taskNameElse),
       priority,
       category: this.extractCategory(tokens),
       created: new Date(),
@@ -501,9 +602,102 @@ export class ThinkLinkNLP {
 
     return {
       action: 'create',
-      task,
-      message: `Created new ${task.priority} priority ${task.type} in ${task.category} category`
+      task: taskElse,
+      message: `Created new ${taskElse.priority} priority ${taskElse.type} in ${taskElse.category} category`
     };
+  }
+
+  /**
+   * Enhanced method to summarize long paragraphs into concise task names.
+   * This implementation uses sentence splitting and keyword-based ranking to select the most relevant sentence.
+   */
+  private summarizeTaskName(paragraph: string): string {
+    // Split the paragraph into sentences
+    const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
+
+    // Action/Task related keywords that often indicate the main task
+    const actionKeywords = new Set([
+      'prepare', 'create', 'develop', 'write', 'make', 'build', 'organize',
+      'schedule', 'plan', 'implement', 'review', 'update', 'complete'
+    ]);
+
+    // Words to exclude from the task name (expanded stopwords)
+    const excludeWords = new Set([
+      ...this.extendedStopwords,
+      'need', 'should', 'must', 'will', 'have', 'has', 'had',
+      'would', 'could', 'might', 'may', 'can', 'extremely',
+      'urgent', 'important', 'critical', 'asap', 'soon',
+      'as', 'because', 'since', 'due', 'to'
+    ]);
+
+    // Function to extract the main task from a sentence
+    const extractMainTask = (sentence: string): string[] => {
+      const tokens = this.tokenize(sentence);
+      const result: string[] = [];
+      let foundAction = false;
+
+      // Look for action keyword and following words
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        
+        // Skip excluded words
+        if (excludeWords.has(token)) continue;
+
+        // If we find an action keyword, start collecting words
+        if (actionKeywords.has(token)) {
+          foundAction = true;
+          result.push(token);
+          continue;
+        }
+
+        // Collect important nouns following the action
+        if (foundAction && result.length < 4) {
+          // Add word if it's not in exclude list and not already in result
+          if (!excludeWords.has(token) && !result.includes(token)) {
+            result.push(token);
+          }
+        }
+      }
+
+      return result;
+    };
+
+    // Process each sentence and score them
+    const taskCandidates = sentences.map(sentence => {
+      const mainTask = extractMainTask(sentence);
+      const score = mainTask.length + 
+                   (sentence.toLowerCase().includes('urgent') ? 1 : 0) +
+                   (sentence.toLowerCase().includes('important') ? 1 : 0);
+      
+      return {
+        task: mainTask,
+        score: score
+      };
+    });
+
+    // Sort by score and get the best candidate
+    taskCandidates.sort((a, b) => b.score - a.score);
+    
+    // If no good candidate found, try to extract nouns from the first sentence
+    if (taskCandidates[0].task.length === 0) {
+      const firstSentence = sentences[0];
+      const tokens = this.tokenize(firstSentence);
+      const nouns = tokens.filter(token => !excludeWords.has(token)).slice(0, 3);
+      return this.capitalizeTaskName(nouns.join(' ')) || 'New Task';
+    }
+
+    return this.capitalizeTaskName(taskCandidates[0].task.join(' '));
+  }
+
+  /**
+   * Capitalizes the first letter of each word in the task name.
+   * @param taskName The task name to capitalize.
+   * @returns The capitalized task name.
+   */
+  private capitalizeTaskName(taskName: string): string {
+    return taskName.split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
   }
 
   private analyzeSentiment(tokens: string[]): number {
@@ -519,7 +713,7 @@ export class ThinkLinkNLP {
     const boxWidth = 80;
     const canvasLines: string[] = [
       '╭' + '─'.repeat(boxWidth - 2) + '╮',
-      '│' + ' ThinkLink Canvas '.padStart((boxWidth + 'ThinkLink Canvas'.length) / 2).padEnd(boxWidth - 2) + '│',
+      '│' + ' ThinkLink Canvas '.padStart((boxWidth + 'ThinkLink Canvas'.length) / 2).padEnd(boxWidth - 2) + '',
       '├' + '─'.repeat(boxWidth - 2) + '┤'
     ];
 
@@ -718,6 +912,292 @@ export class ThinkLinkNLP {
     this.trainModelWithDataset(epochs);
     this.saveModel();
     console.log('Model retrained and saved.');
+  }
+
+  /**
+   * Enhanced Natural Language Understanding
+   * Analyzes text to extract structured information about tasks
+   */
+  private analyzeText(text: string): NLUResult {
+    const sentences = this.splitIntoSentences(text);
+    const parsedSentences = sentences.map(sentence => this.parseSentence(sentence));
+    
+    // Find the most relevant sentence
+    const mainSentence = this.findMainSentence(parsedSentences);
+    
+    // Extract entities and relationships
+    const entities = this.extractEntities(text);
+    
+    // Calculate overall sentiment and urgency
+    const sentiment = this.calculateSentiment(text);
+    const urgency = this.calculateUrgency(text);
+    
+    return {
+      mainTopic: mainSentence.topic || '',
+      action: mainSentence.action || '',
+      entities,
+      keywords: this.extractKeywords(text),
+      sentiment,
+      urgency
+    };
+  }
+
+  /**
+   * Improved sentence parsing with linguistic structure analysis
+   */
+  private parseSentence(sentence: string): ParsedSentence {
+    const tokens = this.tokenize(sentence);
+    const verbPhrase = this.findVerbPhrase(tokens);
+    const entities = this.extractEntitiesFromSentence(sentence);
+    
+    return {
+      text: sentence,
+      score: this.calculateSentenceRelevance(sentence, verbPhrase),
+      action: verbPhrase?.verb,
+      topic: verbPhrase?.object,
+      entities
+    };
+  }
+
+  /**
+   * Enhanced verb phrase extraction
+   */
+  private findVerbPhrase(tokens: string[]): VerbPhrase | null {
+    const verbs = new Set([
+      ...this.verbGroups.creation,
+      ...this.verbGroups.modification,
+      ...this.verbGroups.review,
+      ...this.verbGroups.completion,
+      ...this.verbGroups.communication,
+      ...this.verbGroups.planning
+    ]);
+
+    const verbIndex = tokens.findIndex(token => verbs.has(token.toLowerCase()));
+    if (verbIndex === -1) return null;
+
+    const verb = tokens[verbIndex];
+    const modifiers: string[] = [];
+    let object: string | undefined;
+
+    // Look for object and modifiers after the verb
+    for (let i = verbIndex + 1; i < tokens.length; i++) {
+      const token = tokens[i];
+      if (this.extendedStopwords.has(token.toLowerCase())) continue;
+      
+      if (!object) {
+        object = token;
+      } else {
+        modifiers.push(token);
+      }
+    }
+
+    return { verb, object, modifiers };
+  }
+
+  /**
+   * Improved entity extraction
+   */
+  private extractEntitiesFromSentence(sentence: string): ParsedSentence['entities'] {
+    const entities: ParsedSentence['entities'] = {};
+
+    // Extract time expressions
+    const timeMatch = sentence.match(this.nlpPatterns.timeExpression);
+    if (timeMatch) {
+      entities.time = timeMatch[0];
+    }
+
+    // Extract location
+    const locationMatch = sentence.match(this.nlpPatterns.locationPattern);
+    if (locationMatch) {
+      entities.location = locationMatch[2];
+    }
+
+    // Extract subject/object from common patterns
+    const svoMatch = sentence.match(this.nlpPatterns.subjectVerbObject);
+    if (svoMatch) {
+      entities.subject = svoMatch[1];
+      entities.object = svoMatch[3];
+    }
+
+    return entities;
+  }
+
+  /**
+   * Enhanced sentence relevance calculation
+   */
+  private calculateSentenceRelevance(sentence: string, verbPhrase: VerbPhrase | null): number {
+    let score = 0;
+
+    // Score based on verb type
+    if (verbPhrase) {
+      if (this.verbGroups.creation.includes(verbPhrase.verb)) score += 3;
+      if (this.verbGroups.modification.includes(verbPhrase.verb)) score += 2;
+      if (this.verbGroups.completion.includes(verbPhrase.verb)) score += 2;
+    }
+
+    // Score based on presence of priority indicators
+    if (this.nlpPatterns.priorityPattern.test(sentence)) score += 2;
+    
+    // Score based on presence of deadline
+    if (this.nlpPatterns.deadlinePattern.test(sentence)) score += 2;
+
+    // Score based on position in text (first sentences are often more important)
+    if (sentence === this.splitIntoSentences(sentence)[0]) score += 1;
+
+    return score;
+  }
+
+  /**
+   * Improved keyword extraction
+   */
+  private extractKeywords(text: string): string[] {
+    const tokens = this.tokenize(text);
+    const frequencies = new Map<string, number>();
+    
+    // Calculate term frequency
+    tokens.forEach(token => {
+      if (this.extendedStopwords.has(token.toLowerCase())) return;
+      frequencies.set(token, (frequencies.get(token) || 0) + 1);
+    });
+
+    // Sort by frequency and importance
+    return Array.from(frequencies.entries())
+      .sort((a, b) => {
+        const scoreA = a[1] + this.calculateTermImportance(a[0]);
+        const scoreB = b[1] + this.calculateTermImportance(b[0]);
+        return scoreB - scoreA;
+      })
+      .slice(0, 5)
+      .map(([term]) => term);
+  }
+
+  /**
+   * Calculate term importance based on various factors
+   */
+  private calculateTermImportance(term: string): number {
+    let score = 0;
+    
+    // Check if term is a known important keyword
+    if (this.keywords.categories.includes(term)) score += 2;
+    if (this.keywords.priority.high.includes(term)) score += 2;
+    if (Object.values(this.verbGroups).some(group => group.includes(term))) score += 1;
+    
+    // Check if term is a proper noun (simplified check)
+    if (/^[A-Z][a-z]+$/.test(term)) score += 1;
+    
+    return score;
+  }
+
+  /**
+   * Split text into sentences with improved handling of edge cases
+   */
+  private splitIntoSentences(text: string): string[] {
+    return text
+      .replace(/([.?!])\s*(?=[A-Z])/g, "$1|")
+      .split("|")
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  }
+
+  /**
+   * Find the most relevant sentence for task naming
+   */
+  private findMainSentence(sentences: ParsedSentence[]): ParsedSentence {
+    return sentences.reduce((best, current) => 
+      current.score > best.score ? current : best
+    , sentences[0]);
+  }
+
+  /**
+   * Extract entities from text
+   */
+  private extractEntities(text: string): NLUResult['entities'] {
+    const entities: NLUResult['entities'] = {
+      people: []
+    };
+
+    // Extract location
+    const locationMatch = text.match(this.nlpPatterns.locationPattern);
+    if (locationMatch) {
+      entities.location = locationMatch[2];
+    }
+
+    // Extract time
+    const timeMatch = text.match(this.nlpPatterns.timeExpression);
+    if (timeMatch) {
+      entities.time = timeMatch[0];
+    }
+
+    // Extract people
+    const peopleMatches = text.matchAll(this.nlpPatterns.peoplePattern);
+    for (const match of peopleMatches) {
+      if (match[2] && !entities.people?.includes(match[2])) {
+        entities.people?.push(match[2]);
+      }
+    }
+
+    // Extract subject/object
+    const svoMatch = text.match(this.nlpPatterns.subjectVerbObject);
+    if (svoMatch) {
+      entities.subject = svoMatch[1];
+      entities.object = svoMatch[3];
+    }
+
+    return entities;
+  }
+
+  /**
+   * Calculate sentiment score from text
+   */
+  private calculateSentiment(text: string): number {
+    const tokens = this.tokenize(text);
+    let score = 0;
+    
+    // Count positive and negative words
+    tokens.forEach(token => {
+      if (this.sentimentWeights.positive.includes(token)) {
+        score += 0.2;
+      }
+      if (this.sentimentWeights.negative.includes(token)) {
+        score -= 0.2;
+      }
+    });
+
+    // Normalize score between -1 and 1
+    return Math.max(-1, Math.min(1, score));
+  }
+
+  /**
+   * Calculate urgency score from text
+   */
+  private calculateUrgency(text: string): number {
+    let score = 0;
+    const lowercaseText = text.toLowerCase();
+
+    // Check for urgent keywords
+    const urgentKeywords = [
+      { word: 'urgent', weight: 0.5 },
+      { word: 'asap', weight: 0.5 },
+      { word: 'immediately', weight: 0.4 },
+      { word: 'critical', weight: 0.4 },
+      { word: 'deadline', weight: 0.3 },
+      { word: 'important', weight: 0.3 },
+      { word: 'priority', weight: 0.2 }
+    ];
+
+    urgentKeywords.forEach(({ word, weight }) => {
+      if (lowercaseText.includes(word)) {
+        score += weight;
+      }
+    });
+
+    // Check for time-related urgency
+    if (lowercaseText.includes('today')) score += 0.3;
+    if (lowercaseText.includes('tomorrow')) score += 0.2;
+    if (lowercaseText.includes('this week')) score += 0.1;
+
+    // Normalize score between 0 and 1
+    return Math.min(1, score);
   }
 }
 
