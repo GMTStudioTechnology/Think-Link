@@ -6,6 +6,8 @@ export interface Task {
   created: Date;
   due?: Date;
   context?: string;
+  type?: 'task' | 'event' | 'note';
+  status: 'pending' | 'done';
 }
 export class ThinkLinkNLP {
   private keywords = {
@@ -16,7 +18,8 @@ export class ThinkLinkNLP {
     },
     categories: [
       'work', 'personal', 'shopping', 'health', 'study', 'finance', 
-      'home', 'family', 'project', 'meeting', 'travel', 'fitness'
+      'home', 'family', 'project', 'meeting', 'travel', 'fitness',
+      'calendar', 'goal', 'note'
     ],
     timeIndicators: [
       'today', 'tomorrow', 'tonight', 'next week', 'next month',
@@ -24,7 +27,8 @@ export class ThinkLinkNLP {
     ],
     actions: [
       'create', 'add', 'new', 'delete', 'remove', 'update', 
-      'show', 'list', 'complete', 'done', 'finish', 'edit'
+      'show', 'list', 'complete', 'done', 'finish', 'edit',
+      'view', 'schedule', 'organize'
     ],
     contextual: ['for', 'by', 'at', 'on', 'in', 'with', 'to']
   };
@@ -127,6 +131,14 @@ export class ThinkLinkNLP {
       };
     }
 
+    if (action === 'schedule' || action === 'organize' || action === 'view') {
+      // Handle calendar-related commands
+      return {
+        action: 'calendar',
+        message: 'Calendar functionality is under development'
+      };
+    }
+
     // Use sentiment to adjust priority if not explicitly specified
     const sentimentScore = this.analyzeSentiment(tokens);
     let priority = this.extractPriority(tokens);
@@ -135,6 +147,11 @@ export class ThinkLinkNLP {
       if (sentimentScore < 0) priority = 'low';
     }
 
+    // Determine task type
+    let type: Task['type'] = 'task';
+    if (tokens.includes('event') || tokens.includes('meeting')) type = 'event';
+    if (tokens.includes('note') || tokens.includes('document')) type = 'note';
+
     const task: Task = {
       id: Date.now().toString(),
       content: this.extractTaskContent(tokens),
@@ -142,13 +159,14 @@ export class ThinkLinkNLP {
       category: this.extractCategory(tokens),
       created: new Date(),
       due: this.extractDate(tokens),
-      // Optionally, you can include context extraction here if needed
+      type,
+      status: 'pending'
     };
 
     return {
       action: 'create',
       task,
-      message: `Created new ${task.priority} priority task in ${task.category} category`
+      message: `Created new ${task.priority} priority ${task.type} in ${task.category} category`
     };
   }
 
@@ -162,7 +180,7 @@ export class ThinkLinkNLP {
   }
 
   public generateCanvas(tasks: Task[]): string {
-    const boxWidth = 50;
+    const boxWidth = 60;
     const canvasLines: string[] = [
       '╭' + '─'.repeat(boxWidth - 2) + '╮',
       '│' + ' ThinkLink Canvas '.padStart((boxWidth + 'ThinkLink Canvas'.length) / 2).padEnd(boxWidth - 2) + '│',

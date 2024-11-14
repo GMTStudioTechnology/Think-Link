@@ -1,3 +1,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+.react-calendar__tile .dot {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  /* Example: Adjust sidebar visibility on smaller screens */
+@media (max-width: 768px) {
+    .sidebar-hidden {
+      display: none;
+    }
+  }
+  /* Example: High contrast for text */
+.text-gray-300 { color: #D1D5DB; } /* Adjust if necessary */
+.bg-gray-700 { background-color: #374151; }
+.bg-gray-800 { background-color: #1F2937; }
