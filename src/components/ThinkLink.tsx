@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThinkLinkNLP, Task } from './ThinkLink_model';
-import { FiMenu, FiX, FiPlus, FiSun, FiMoon, FiFilter } from 'react-icons/fi';
+import { FiMenu, FiX, FiPlus, FiSun, FiMoon, FiFilter, FiCheck, FiTrash2, FiEdit2 } from 'react-icons/fi';
+
+interface CommandResult {
+  action: 'create' | 'list' | 'delete' | 'update' | 'complete' | string;
+  task?: Task;
+  message: string;
+  suggestions?: string[];
+}
 
 const ThinkLink: React.FC = () => {
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -15,8 +22,8 @@ const ThinkLink: React.FC = () => {
   const [canvasVisible, setCanvasVisible] = useState(false);
   const [canvasContent, setCanvasContent] = useState('');
   
-  // State for theme (light/dark)
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  // State for theme (light/dark/system)
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('dark');
   
   // Filter State
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -38,6 +45,7 @@ const ThinkLink: React.FC = () => {
     }
   }, [filteredTasks]); // Include filteredTasks in dependencies
   
+  // Scroll to bottom when command history updates
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
@@ -46,7 +54,7 @@ const ThinkLink: React.FC = () => {
 
   const handleCommandSubmit = () => {
     if (currentCommand.trim()) {
-      const result = nlpModel.current.processCommand(currentCommand);
+      const result: CommandResult = nlpModel.current.processCommand(currentCommand);
       
       // Add command to history
       setCommandHistory(prev => [...prev, `> ${currentCommand}`]);
@@ -61,6 +69,10 @@ const ThinkLink: React.FC = () => {
           setCanvasVisible(true);
           return updatedTasks;
         });
+        if (result.suggestions && Array.isArray(result.suggestions)) {
+          const suggestions = result.suggestions; // Assign to local variable
+          setCommandHistory(prev => [...prev, `Suggestions: ${suggestions.join(', ')}`]);
+        }
       }
       
       if (result.action === 'list') {
@@ -71,7 +83,7 @@ const ThinkLink: React.FC = () => {
       }
 
       if (result.action === 'delete') {
-        const taskId = currentCommand.split(' ').find(token => token.length === 13);
+        const taskId = result.task?.id;
         if (taskId) {
           setTasks(prev => {
             const updatedTasks = prev.filter(task => task.id !== taskId);
@@ -85,8 +97,37 @@ const ThinkLink: React.FC = () => {
           setCommandHistory(prev => [...prev, result.message]);
         }
       }
+
+      if (result.action === 'update' && result.task) {
+        setTasks(prev => {
+          const updatedTasks = prev.map(task => task.id === result.task!.id ? result.task! : task);
+          const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
+          setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
+          setCanvasContent(updatedCanvas);
+          setCanvasVisible(true);
+          return updatedTasks;
+        });
+        if (result.suggestions && Array.isArray(result.suggestions)) {
+          const suggestions = result.suggestions; // Assign to local variable
+          setCommandHistory(prev => [...prev, `Suggestions: ${suggestions.join(', ')}`]);
+        }
+      }
+
+      if (result.action === 'complete' && result.task) {
+        const taskId = result.task.id;
+        setTasks(prev => {
+          const updatedTasks = prev.map(task => 
+            task.id === taskId ? { ...task, status: 'done' as const } : task
+          );
+          const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
+          setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
+          setCanvasContent(updatedCanvas);
+          setCanvasVisible(true);
+          return updatedTasks;
+        });
+      }
       
-      // Handle other actions (e.g., update, complete) here
+      // Handle other actions (e.g., schedule) here
       
       setCurrentCommand('');
       setShowWelcome(false);
@@ -104,7 +145,7 @@ const ThinkLink: React.FC = () => {
   };
 
   const toggleTheme = () => {
-    setIsDarkMode(prev => !prev);
+    setTheme(prev => prev === 'dark' ? 'light' : prev === 'light' ? 'system' : 'dark');
   };
 
   // Define separate spring transitions for expanding and collapsing
@@ -133,6 +174,9 @@ const ThinkLink: React.FC = () => {
       transition: collapseTransition
     }
   };
+
+  // Determine theme classes
+  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   return (
     <div className={`${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'} min-h-screen w-full p-6 flex transition-colors duration-500`}>
@@ -219,6 +263,8 @@ const ThinkLink: React.FC = () => {
               >
                 {cmd.startsWith('>') ? (
                   <span className="text-yellow-400">{cmd}</span>
+                ) : cmd.startsWith('Suggestions:') ? (
+                  <span className="text-blue-400 italic">{cmd}</span>
                 ) : (
                   <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{cmd}</span>
                 )}
@@ -271,7 +317,7 @@ const ThinkLink: React.FC = () => {
                 <FiX size={20} />
               </button>
             </div>
-            <div className="bg-gray-700/20 p-6 rounded-lg flex-1 overflow-auto">
+            <div className="bg-gray-700/20 p-6 rounded-lg flex-1 overflow-auto mb-6">
               <pre className={`text-${isDarkMode ? 'gray-300' : 'gray-800'} whitespace-pre-wrap text-base leading-relaxed`}>
                 {canvasContent}
               </pre>
@@ -294,37 +340,44 @@ const ThinkLink: React.FC = () => {
                   className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-red-500' : 'border-red-400'} 
                   ${filter === 'high' ? `bg-${isDarkMode ? 'red-600' : 'red-200'}` : `hover:bg-${isDarkMode ? 'red-600' : 'red-200'}`}`}
                 >
-                  High Priority
+                  <FiCheck className="inline mr-1" /> High Priority
                 </button>
                 <button 
                   onClick={() => setFilter('medium')}
                   className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-yellow-500' : 'border-yellow-400'} 
                   ${filter === 'medium' ? `bg-${isDarkMode ? 'yellow-600' : 'yellow-200'}` : `hover:bg-${isDarkMode ? 'yellow-600' : 'yellow-200'}`}`}
                 >
-                  Medium Priority
+                  <FiEdit2 className="inline mr-1" /> Medium Priority
                 </button>
                 <button 
                   onClick={() => setFilter('low')}
                   className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-green-500' : 'border-green-400'} 
                   ${filter === 'low' ? `bg-${isDarkMode ? 'green-600' : 'green-200'}` : `hover:bg-${isDarkMode ? 'green-600' : 'green-200'}`}`}
                 >
-                  Low Priority
+                  <FiTrash2 className="inline mr-1" /> Low Priority
                 </button>
               </div>
             </div>
             <div className="mt-6">
-              <h3 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-medium mb-2`}>Statistics</h3>
+              <h3 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-medium mb-2`}>Training Statistics</h3>
               <div className="flex justify-between mb-2">
-                <span className={`text-${isDarkMode ? 'gray-400' : 'gray-600'}`}>Total Tasks:</span>
-                <span className={`text-${isDarkMode ? 'gray-200' : 'gray-800'}`}>{tasks.length}</span>
+                <span className={`text-${isDarkMode ? 'gray-400' : 'gray-600'}`}>Samples Count:</span>
+                <span className={`text-${isDarkMode ? 'gray-200' : 'gray-800'}`}>{nlpModel.current.getTrainingStats().samplesCount}</span>
               </div>
               <div className="flex justify-between mb-2">
-                <span className={`text-${isDarkMode ? 'gray-400' : 'gray-600'}`}>Completed:</span>
-                <span className={`text-${isDarkMode ? 'gray-200' : 'gray-800'}`}>{tasks.filter(task => task.status === 'done').length}</span>
+                <span className={`text-${isDarkMode ? 'gray-400' : 'gray-600'}`}>Average Accuracy:</span>
+                <span className={`text-${isDarkMode ? 'gray-200' : 'gray-800'}`}>
+                  {(nlpModel.current.getTrainingStats().averageAccuracy * 100).toFixed(2)}%
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className={`text-${isDarkMode ? 'gray-400' : 'gray-600'}`}>Pending:</span>
-                <span className={`text-${isDarkMode ? 'gray-200' : 'gray-800'}`}>{tasks.filter(task => task.status === 'pending').length}</span>
+            </div>
+            {/* Task Dependencies */}
+            <div className="mt-6">
+              <h3 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-medium mb-2`}>Task Dependencies</h3>
+              <div className="bg-gray-700/20 p-4 rounded-lg">
+                <pre className={`text-${isDarkMode ? 'gray-300' : 'gray-800'} whitespace-pre-wrap text-base leading-relaxed`}>
+                  {nlpModel.current.visualizeDependencies(tasks)}
+                </pre>
               </div>
             </div>
           </motion.div>
