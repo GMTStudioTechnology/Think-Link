@@ -275,8 +275,8 @@ const ThinkLink: React.FC = () => {
             <div className={classNames(
               "p-3 rounded-md backdrop-blur-sm",
               {
-                "bg-black text-green-400": true,
-                "bg-black text-green-600 border border-white": true
+                "bg-black text-goldenHour": true,
+                "bg-black text-goldenHour border border-white": true
               }
             )}>
               <code>
