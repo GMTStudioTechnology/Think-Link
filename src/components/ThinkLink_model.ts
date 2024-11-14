@@ -112,7 +112,8 @@ export class ThinkLinkNLP {
     // Update weights based on prediction error
     tokens.forEach(token => {
       if (this.neuralWeights.priority.has(token)) {
-        const error = (expectedOutput.priority === 'high' ? 1 : 0) - prediction.priority;
+        const target = this.encodePriority(expectedOutput.priority);
+        const error = target - prediction.priority;
         const currentWeight = this.neuralWeights.priority.get(token) || 0;
         this.neuralWeights.priority.set(
           token,
@@ -121,10 +122,20 @@ export class ThinkLinkNLP {
       }
 
       if (this.neuralWeights.category.has(token)) {
-        const error = (this.keywords.categories.indexOf(expectedOutput.category) / 
-          this.keywords.categories.length) - prediction.category;
+        const target = this.encodeCategory(expectedOutput.category);
+        const error = target - prediction.category;
         const currentWeight = this.neuralWeights.category.get(token) || 0;
         this.neuralWeights.category.set(
+          token,
+          currentWeight + this.learningRate * error
+        );
+      }
+
+      if (this.neuralWeights.type.has(token)) {
+        const target = this.encodeType(expectedOutput.type);
+        const error = target - prediction.type;
+        const currentWeight = this.neuralWeights.type.get(token) || 0;
+        this.neuralWeights.type.set(
           token,
           currentWeight + this.learningRate * error
         );
@@ -159,6 +170,30 @@ export class ThinkLinkNLP {
 
   private sigmoid(x: number): number {
     return 1 / (1 + Math.exp(-x));
+  }
+
+  private encodePriority(priority: 'high' | 'medium' | 'low'): number {
+    switch (priority) {
+      case 'high': return 1;
+      case 'medium': return 0.5;
+      case 'low': return 0;
+      default: return 0.5;
+    }
+  }
+
+  private encodeCategory(category: string): number {
+    // Simple encoding based on category index
+    const index = this.keywords.categories.indexOf(category);
+    return index >= 0 ? index / this.keywords.categories.length : 0.5;
+  }
+
+  private encodeType(type: 'task' | 'event' | 'note'): number {
+    switch (type) {
+      case 'task': return 1;
+      case 'event': return 0.5;
+      case 'note': return 0;
+      default: return 0.5;
+    }
   }
 
   // Modify existing extractPriority to use neural network prediction
@@ -272,8 +307,9 @@ export class ThinkLinkNLP {
     const result: { due?: Date; recurring?: string } = {};
     
     // Handle recurring patterns
-    if (text.match(/every (day|week|month|year)/i)) {
-      result.recurring = text.match(/every (day|week|month|year)/i)![1];
+    const recurringMatch = text.match(/every (day|week|month|year)/i);
+    if (recurringMatch) {
+      result.recurring = recurringMatch[1].toLowerCase();
     }
 
     // Handle relative dates
@@ -384,7 +420,7 @@ export class ThinkLinkNLP {
       }
 
       const task: Task = {
-        id: Date.now().toString(),
+        id: this.generateUniqueId(),
         content: this.extractTaskContent(tokens),
         priority: smartPriority,
         category,
@@ -417,7 +453,7 @@ export class ThinkLinkNLP {
     if (tokens.includes('note') || tokens.includes('document')) type = 'note';
 
     const task: Task = {
-      id: Date.now().toString(),
+      id: this.generateUniqueId(),
       content: this.extractTaskContent(tokens),
       priority,
       category: this.extractCategory(tokens),
@@ -444,7 +480,7 @@ export class ThinkLinkNLP {
   }
 
   public generateCanvas(tasks: Task[]): string {
-    const boxWidth = 60;
+    const boxWidth = 80;
     const canvasLines: string[] = [
       '╭' + '─'.repeat(boxWidth - 2) + '╮',
       '│' + ' ThinkLink Canvas '.padStart((boxWidth + 'ThinkLink Canvas'.length) / 2).padEnd(boxWidth - 2) + '│',
@@ -549,12 +585,72 @@ export class ThinkLinkNLP {
 
     // Extract temporal context
     Object.entries(this.contextPatterns).forEach(([type, pattern]) => {
-      if (text.match(pattern)) {
-        contexts.push(`${type}: ${text.match(pattern)![0]}`);
+      const match = text.match(pattern);
+      if (match) {
+        contexts.push(`${type}: ${match[0]}`);
       }
     });
 
     return contexts.join('; ');
+  }
+
+  // Generate unique ID for tasks
+  private generateUniqueId(): string {
+    return 'xxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  // Enhanced training with multiple epochs and validation
+  public trainModel(epochs: number = 100): void {
+    for (let epoch = 0; epoch < epochs; epoch++) {
+      this.trainingData.forEach(sample => {
+        this.train(sample.input, sample.expectedOutput);
+      });
+
+      if (epoch % 10 === 0) {
+        const stats = this.getTrainingStats();
+        console.log(`Epoch ${epoch}: Accuracy = ${(stats.averageAccuracy * 100).toFixed(2)}%`);
+      }
+    }
+  }
+
+  // Calendar integration method to schedule tasks
+  public scheduleTask(task: Task, tasks: Task[]): void {
+    if (task.due) {
+      // Check for conflicts
+      const conflict = tasks.find(t => 
+        t.due?.getTime() === task.due?.getTime() && t.category === task.category
+      );
+      if (conflict) {
+        console.log(`Conflict detected with task ID ${conflict.id} on ${task.due.toLocaleDateString()}`);
+        // Handle conflict resolution here (e.g., reschedule, prioritize)
+      } else {
+        console.log(`Task scheduled on ${task.due.toLocaleDateString()}`);
+      }
+    } else {
+      console.log('No due date specified for the task.');
+    }
+  }
+
+  // Method to visualize dependencies between tasks
+  public visualizeDependencies(tasks: Task[]): string {
+    const dependencyLines: string[] = ['Dependencies Graph:'];
+    tasks.forEach(task => {
+      if (task.context?.includes('depends on')) {
+        const dependentTaskId = task.context.split(': ')[1];
+        dependencyLines.push(`- Task ${task.id} depends on Task ${dependentTaskId}`);
+      }
+    });
+    return dependencyLines.join('\n');
+  }
+
+  // Enhanced canvas generation with dependency visualization
+  public generateAdvancedCanvas(tasks: Task[]): string {
+    const baseCanvas = this.generateCanvas(tasks);
+    const dependencies = this.visualizeDependencies(tasks);
+    return `${baseCanvas}\n\n${dependencies}`;
   }
 }
 

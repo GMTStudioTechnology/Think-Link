@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThinkLinkNLP, Task } from './ThinkLink_model';
-import { FiMenu, FiX, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
+import { FiMenu, FiX, FiPlus, FiSun, FiMoon, FiFilter } from 'react-icons/fi';
 
 const ThinkLink: React.FC = () => {
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -17,6 +17,26 @@ const ThinkLink: React.FC = () => {
   
   // State for theme (light/dark)
   const [isDarkMode, setIsDarkMode] = useState(true);
+  
+  // Filter State
+  const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  
+  // Memoize filteredTasks to optimize performance and satisfy ESLint
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      if (filter === 'all') return true;
+      return task.priority === filter;
+    });
+  }, [tasks, filter]);
+  
+  // Update canvasContent when filteredTasks change
+  useEffect(() => {
+    const currentCanvas = nlpModel.current.generateAdvancedCanvas(filteredTasks);
+    setCanvasContent(currentCanvas);
+    if (filteredTasks.length > 0) {
+      setCanvasVisible(true);
+    }
+  }, [filteredTasks]); // Include filteredTasks in dependencies
   
   useEffect(() => {
     if (terminalRef.current) {
@@ -34,8 +54,8 @@ const ThinkLink: React.FC = () => {
       if (result.action === 'create' && result.task) {
         setTasks(prev => {
           const updatedTasks = [...prev, result.task] as Task[];
-          // Generate and add canvas after updating tasks
-          const updatedCanvas = nlpModel.current.generateCanvas(updatedTasks);
+          // Generate and add advanced canvas after updating tasks
+          const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
           setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
           setCanvasContent(updatedCanvas);
           setCanvasVisible(true);
@@ -44,7 +64,7 @@ const ThinkLink: React.FC = () => {
       }
       
       if (result.action === 'list') {
-        const currentCanvas = nlpModel.current.generateCanvas(tasks);
+        const currentCanvas = nlpModel.current.generateAdvancedCanvas(tasks);
         setCommandHistory(prev => [...prev, result.message, currentCanvas]);
         setCanvasContent(currentCanvas);
         setCanvasVisible(true);
@@ -55,7 +75,7 @@ const ThinkLink: React.FC = () => {
         if (taskId) {
           setTasks(prev => {
             const updatedTasks = prev.filter(task => task.id !== taskId);
-            const updatedCanvas = nlpModel.current.generateCanvas(updatedTasks);
+            const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
             setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
             setCanvasContent(updatedCanvas);
             setCanvasVisible(true);
@@ -243,7 +263,7 @@ const ThinkLink: React.FC = () => {
             animate={{ x: 0 }}
             exit={{ x: 800, transition: { duration: 0 } }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className={`w-[800px] h-full bg-${isDarkMode ? 'gray-800/90' : 'gray-100/90'} backdrop-blur-xl rounded-2xl shadow-2xl border border-${isDarkMode ? 'gray-700' : 'gray-300'}/50 p-4 overflow-auto`}
+            className={`w-[800px] h-full bg-${isDarkMode ? 'gray-800/90' : 'gray-100/90'} backdrop-blur-xl rounded-2xl shadow-2xl border border-${isDarkMode ? 'gray-700' : 'gray-300'}/50 p-6 overflow-auto flex flex-col`}
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className={`text-${isDarkMode ? 'white' : 'gray-900'} text-lg font-semibold`}>ThinkLink Canvas</h2>
@@ -251,38 +271,60 @@ const ThinkLink: React.FC = () => {
                 <FiX size={20} />
               </button>
             </div>
-            <div className="bg-gray-700/20 p-6 rounded-lg min-h-[60vh] w-full">
+            <div className="bg-gray-700/20 p-6 rounded-lg flex-1 overflow-auto">
               <pre className={`text-${isDarkMode ? 'gray-300' : 'gray-800'} whitespace-pre-wrap text-base leading-relaxed`}>
                 {canvasContent}
               </pre>
             </div>
             {/* Filters and Statistics */}
             <div className="mt-6">
-              <h3 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-medium mb-2`}>Filters</h3>
+              <h3 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-medium mb-2 flex items-center`}>
+                <FiFilter className="mr-2" /> Filters
+              </h3>
               <div className="flex flex-wrap gap-2">
-                <button className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-gray-600' : 'border-gray-300'} hover:bg-${isDarkMode ? 'gray-700' : 'gray-200'}`}>
+                <button 
+                  onClick={() => setFilter('all')}
+                  className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-gray-600' : 'border-gray-300'} 
+                  ${filter === 'all' ? `bg-${isDarkMode ? 'gray-700' : 'gray-200'}` : `hover:bg-${isDarkMode ? 'gray-700' : 'gray-200'}`}`}
+                >
                   All
                 </button>
-                <button className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-red-500' : 'border-red-400'} hover:bg-${isDarkMode ? 'red-600' : 'red-200'}`}>
+                <button 
+                  onClick={() => setFilter('high')}
+                  className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-red-500' : 'border-red-400'} 
+                  ${filter === 'high' ? `bg-${isDarkMode ? 'red-600' : 'red-200'}` : `hover:bg-${isDarkMode ? 'red-600' : 'red-200'}`}`}
+                >
                   High Priority
                 </button>
-                <button className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-yellow-500' : 'border-yellow-400'} hover:bg-${isDarkMode ? 'yellow-600' : 'yellow-200'}`}>
+                <button 
+                  onClick={() => setFilter('medium')}
+                  className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-yellow-500' : 'border-yellow-400'} 
+                  ${filter === 'medium' ? `bg-${isDarkMode ? 'yellow-600' : 'yellow-200'}` : `hover:bg-${isDarkMode ? 'yellow-600' : 'yellow-200'}`}`}
+                >
                   Medium Priority
                 </button>
-                <button className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-green-500' : 'border-green-400'} hover:bg-${isDarkMode ? 'green-600' : 'green-200'}`}>
+                <button 
+                  onClick={() => setFilter('low')}
+                  className={`px-3 py-1 rounded-full border ${isDarkMode ? 'border-green-500' : 'border-green-400'} 
+                  ${filter === 'low' ? `bg-${isDarkMode ? 'green-600' : 'green-200'}` : `hover:bg-${isDarkMode ? 'green-600' : 'green-200'}`}`}
+                >
                   Low Priority
                 </button>
               </div>
             </div>
             <div className="mt-6">
               <h3 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-medium mb-2`}>Statistics</h3>
-              <div className="flex justify-between">
+              <div className="flex justify-between mb-2">
                 <span className={`text-${isDarkMode ? 'gray-400' : 'gray-600'}`}>Total Tasks:</span>
                 <span className={`text-${isDarkMode ? 'gray-200' : 'gray-800'}`}>{tasks.length}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between mb-2">
                 <span className={`text-${isDarkMode ? 'gray-400' : 'gray-600'}`}>Completed:</span>
                 <span className={`text-${isDarkMode ? 'gray-200' : 'gray-800'}`}>{tasks.filter(task => task.status === 'done').length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={`text-${isDarkMode ? 'gray-400' : 'gray-600'}`}>Pending:</span>
+                <span className={`text-${isDarkMode ? 'gray-200' : 'gray-800'}`}>{tasks.filter(task => task.status === 'pending').length}</span>
               </div>
             </div>
           </motion.div>
