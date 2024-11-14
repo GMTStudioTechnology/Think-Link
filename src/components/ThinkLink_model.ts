@@ -71,6 +71,7 @@ export class ThinkLinkNLP {
 
   private learningRate = 0.1;
   private trainingDataSet: TrainingData[] = trainingData;
+  private modelKey = 'ThinkLinkNLPModel';
 
   // Add context awareness
   private contextPatterns = {
@@ -81,8 +82,11 @@ export class ThinkLinkNLP {
   };
 
   constructor() {
-    this.initializeWeights();
-    this.trainModelWithDataset();
+    if (!this.loadModel()) {
+      this.initializeWeights();
+      this.trainModelWithDataset(200); // Increased epochs for better training
+      this.saveModel();
+    }
   }
 
   private initializeWeights(): void {
@@ -115,6 +119,11 @@ export class ThinkLinkNLP {
       if ((epoch + 1) % 10 === 0) {
         const stats = this.getTrainingStats();
         console.log(`Epoch ${epoch + 1}: Accuracy = ${(stats.averageAccuracy * 100).toFixed(2)}%`);
+        // Optional: Implement early stopping based on accuracy
+        if (stats.averageAccuracy >= 0.95) {
+          console.log('Desired accuracy reached. Stopping training.');
+          break;
+        }
       }
     }
   }
@@ -407,16 +416,18 @@ export class ThinkLinkNLP {
     }
 
     if (action === 'delete' || action === 'remove') {
-      const taskId = tokens.find(token => token.length === 13); // Assuming ID length
-      if (taskId) {
+      const taskId = tokens[tokens.length - 1]; // Get the last token as ID
+      
+      if (taskId && taskId.length > 8) { // Basic validation for ID length
         return {
           action: 'delete',
+          task: { id: taskId } as Task, // Create a minimal task object with just the ID
           message: `Deleted task with ID ${taskId}`
         };
       }
       return {
         action: 'delete',
-        message: 'Please specify the task ID to delete'
+        message: 'Please specify the task ID to delete. Use the format: delete <task-id>'
       };
     }
 
@@ -523,6 +534,7 @@ export class ThinkLinkNLP {
       categoryTasks.forEach(task => {
         const priority = this.getPrioritySymbol(task.priority);
         const due = task.due ? ` 📅 ${task.due.toLocaleDateString()}` : '';
+        // Main task content without ID
         const taskLine = `${priority} ${task.content}${due}`;
         
         // Handle long task lines with word wrapping
@@ -530,9 +542,14 @@ export class ThinkLinkNLP {
         wrappedLines.forEach(line => {
           canvasLines.push('│  ' + line.padEnd(boxWidth - 4) + ' │');
         });
+
+        // Add ID on the next line, indented and in a different color/style
+        canvasLines.push('│  ' + `└─ ID: ${task.id}`.padEnd(boxWidth - 4) + ' │');
+        // Add a separator line after each task
+        canvasLines.push('│  ' + '─'.repeat(boxWidth - 6) + ' │');
       });
       
-      // Separator
+      // Category Separator
       canvasLines.push('├' + '─'.repeat(boxWidth - 2) + '┤');
     }
 
@@ -662,6 +679,45 @@ export class ThinkLinkNLP {
     const baseCanvas = this.generateCanvas(tasks);
     const dependencies = this.visualizeDependencies(tasks);
     return `${baseCanvas}\n\n${dependencies}`;
+  }
+
+  // Save the trained model to localStorage
+  private saveModel(): void {
+    const serializedModel = {
+      priority: Array.from(this.neuralWeights.priority.entries()),
+      category: Array.from(this.neuralWeights.category.entries()),
+      type: Array.from(this.neuralWeights.type.entries())
+    };
+    localStorage.setItem(this.modelKey, JSON.stringify(serializedModel));
+    console.log('Model saved to localStorage.');
+  }
+
+  // Load the trained model from localStorage
+  private loadModel(): boolean {
+    const serializedModel = localStorage.getItem(this.modelKey);
+    if (serializedModel) {
+      try {
+        const parsedModel = JSON.parse(serializedModel);
+        this.neuralWeights.priority = new Map<string, number>(parsedModel.priority);
+        this.neuralWeights.category = new Map<string, number>(parsedModel.category);
+        this.neuralWeights.type = new Map<string, number>(parsedModel.type);
+        console.log('Model loaded from localStorage.');
+        return true;
+      } catch (error) {
+        console.error('Failed to parse the saved model. Reinitializing weights.', error);
+        return false;
+      }
+    }
+    console.log('No saved model found. Initializing and training a new model.');
+    return false;
+  }
+
+  // Method to retrain the model manually
+  public retrainModel(epochs?: number): void {
+    this.initializeWeights();
+    this.trainModelWithDataset(epochs);
+    this.saveModel();
+    console.log('Model retrained and saved.');
   }
 }
 

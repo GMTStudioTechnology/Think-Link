@@ -86,12 +86,22 @@ const ThinkLink: React.FC = () => {
         const taskId = result.task?.id;
         if (taskId) {
           setTasks(prev => {
-            const updatedTasks = prev.filter(task => task.id !== taskId);
-            const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
-            setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
-            setCanvasContent(updatedCanvas);
-            setCanvasVisible(true);
-            return updatedTasks;
+            // Remove dashes from both the input ID and stored task IDs for comparison
+            const normalizedInputId = taskId.replace(/-/g, '');
+            const taskExists = prev.find(task => task.id.replace(/-/g, '') === normalizedInputId);
+            
+            if (taskExists) {
+              const updatedTasks = prev.filter(task => task.id.replace(/-/g, '') !== normalizedInputId);
+              const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
+              setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
+              setCanvasContent(updatedCanvas);
+              setCanvasVisible(true);
+              return updatedTasks;
+            } else {
+              // If task doesn't exist, add error message to command history
+              setCommandHistory(prev => [...prev, `Error: Task with ID ${taskId} not found`]);
+              return prev; // Return unchanged tasks array
+            }
           });
         } else {
           setCommandHistory(prev => [...prev, result.message]);

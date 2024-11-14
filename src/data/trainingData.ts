@@ -522,4 +522,445 @@ export const trainingData: TrainingData[] = [
       type: "task"
     }
   }
+  ,
+  {
+    input: "Review quarterly sales report",
+    expectedOutput: {
+      priority: "high",
+      category: "work",
+      type: "task"
+    }
+  },
+  {
+    input: "Schedule dental cleaning",
+    expectedOutput: {
+      priority: "medium", 
+      category: "health",
+      type: "task"
+    }
+  },
+  {
+    input: "Buy anniversary gift",
+    expectedOutput: {
+      priority: "high",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Clean out garage",
+    expectedOutput: {
+      priority: "low",
+      category: "home",
+      type: "task"
+    }
+  },
+  {
+    input: "Prepare tax documents",
+    expectedOutput: {
+      priority: "high",
+      category: "finance",
+      type: "task"
+    }
+  },
+  {
+    input: "Plan team building activity",
+    expectedOutput: {
+      priority: "medium",
+      category: "work",
+      type: "event"
+    }
+  },
+  {
+    input: "Update project timeline",
+    expectedOutput: {
+      priority: "high",
+      category: "work",
+      type: "task"
+    }
+  },
+  {
+    input: "Schedule haircut appointment",
+    expectedOutput: {
+      priority: "low",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Research vacation destinations",
+    expectedOutput: {
+      priority: "low",
+      category: "travel",
+      type: "note"
+    }
+  },
+  {
+    input: "Renew gym membership",
+    expectedOutput: {
+      priority: "medium",
+      category: "fitness",
+      type: "task"
+    }
+  },
+  {
+    input: "Submit expense reports",
+    expectedOutput: {
+      priority: "high",
+      category: "finance",
+      type: "task"
+    }
+  },
+  {
+    input: "Plan weekly meal prep",
+    expectedOutput: {
+      priority: "medium",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Back up computer files",
+    expectedOutput: {
+      priority: "high",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Schedule vet appointment for pet",
+    expectedOutput: {
+      priority: "medium",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Review investment portfolio",
+    expectedOutput: {
+      priority: "high",
+      category: "finance",
+      type: "task"
+    }
+  },
+  {
+    input: "Order new business cards",
+    expectedOutput: {
+      priority: "low",
+      category: "work",
+      type: "task"
+    }
+  },
+  {
+    input: "Plan holiday party",
+    expectedOutput: {
+      priority: "medium",
+      category: "social",
+      type: "event"
+    }
+  },
+  {
+    input: "Schedule home inspection",
+    expectedOutput: {
+      priority: "high",
+      category: "home",
+      type: "task"
+    }
+  },
+  {
+    input: "Buy new work attire",
+    expectedOutput: {
+      priority: "medium",
+      category: "shopping",
+      type: "task"
+    }
+  },
+  {
+    input: "Set up automatic bill payments",
+    expectedOutput: {
+      priority: "high",
+      category: "finance",
+      type: "task"
+    }
+  },
+  {
+    input: "Create presentation slides",
+    expectedOutput: {
+      priority: "high",
+      category: "work",
+      type: "task"
+    }
+  },
+  {
+    input: "Schedule car wash",
+    expectedOutput: {
+      priority: "low",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Plan birthday celebration",
+    expectedOutput: {
+      priority: "medium",
+      category: "social",
+      type: "event"
+    }
+  },
+  {
+    input: "Update emergency contacts",
+    expectedOutput: {
+      priority: "high",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Research new phone plans",
+    expectedOutput: {
+      priority: "low",
+      category: "personal",
+      type: "note"
+    }
+  },
+  {
+    input: "Schedule annual physical",
+    expectedOutput: {
+      priority: "high",
+      category: "health",
+      type: "task"
+    }
+  },
+  {
+    input: "Clean out email inbox",
+    expectedOutput: {
+      priority: "medium",
+      category: "work",
+      type: "task"
+    }
+  },
+  {
+    input: "Plan garden layout",
+    expectedOutput: {
+      priority: "low",
+      category: "home",
+      type: "note"
+    }
+  },
+  {
+    input: "Review insurance coverage",
+    expectedOutput: {
+      priority: "high",
+      category: "finance",
+      type: "task"
+    }
+  },
+  {
+    input: "Schedule carpet cleaning",
+    expectedOutput: {
+      priority: "medium",
+      category: "home",
+      type: "task"
+    }
+  },
+  {
+    input: "Buy new printer cartridges",
+    expectedOutput: {
+      priority: "medium",
+      category: "shopping",
+      type: "task"
+    }
+  },
+  {
+    input: "Plan retirement savings",
+    expectedOutput: {
+      priority: "high",
+      category: "finance",
+      type: "task"
+    }
+  },
+  {
+    input: "Schedule eye exam",
+    expectedOutput: {
+      priority: "medium",
+      category: "health",
+      type: "task"
+    }
+  },
+  {
+    input: "Update social media profiles",
+    expectedOutput: {
+      priority: "low",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Research new laptop options",
+    expectedOutput: {
+      priority: "medium",
+      category: "shopping",
+      type: "note"
+    }
+  },
+  {
+    input: "Plan networking event",
+    expectedOutput: {
+      priority: "high",
+      category: "work",
+      type: "event"
+    }
+  },
+  {
+    input: "Schedule HVAC maintenance",
+    expectedOutput: {
+      priority: "medium",
+      category: "home",
+      type: "task"
+    }
+  },
+  {
+    input: "Update contact list",
+    expectedOutput: {
+      priority: "low",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Research investment strategies",
+    expectedOutput: {
+      priority: "high",
+      category: "finance",
+      type: "note"
+    }
+  },
+  {
+    input: "Plan family reunion",
+    expectedOutput: {
+      priority: "medium",
+      category: "family",
+      type: "event"
+    }
+  },
+  {
+    input: "Schedule roof inspection",
+    expectedOutput: {
+      priority: "high",
+      category: "home",
+      type: "task"
+    }
+  },
+  {
+    input: "Buy new running shoes",
+    expectedOutput: {
+      priority: "medium",
+      category: "fitness",
+      type: "task"
+    }
+  },
+  {
+    input: "Plan charity fundraiser",
+    expectedOutput: {
+      priority: "high",
+      category: "work",
+      type: "event"
+    }
+  },
+  {
+    input: "Schedule pest control",
+    expectedOutput: {
+      priority: "medium",
+      category: "home",
+      type: "task"
+    }
+  },
+  {
+    input: "Research vacation packages",
+    expectedOutput: {
+      priority: "low",
+      category: "travel",
+      type: "note"
+    }
+  },
+  {
+    input: "Plan weekly team meeting",
+    expectedOutput: {
+      priority: "high",
+      category: "work",
+      type: "event"
+    }
+  },
+  {
+    input: "Buy new winter clothes",
+    expectedOutput: {
+      priority: "medium",
+      category: "shopping",
+      type: "task"
+    }
+  },
+  {
+    input: "Schedule blood work",
+    expectedOutput: {
+      priority: "high",
+      category: "health",
+      type: "task"
+    }
+  },
+  {
+    input: "Plan home renovation",
+    expectedOutput: {
+      priority: "high",
+      category: "home",
+      type: "event"
+    }
+  },
+  {
+    input: "Research retirement communities",
+    expectedOutput: {
+      priority: "low",
+      category: "personal",
+      type: "note"
+    }
+  },
+  {
+    input: "Schedule tire rotation",
+    expectedOutput: {
+      priority: "medium",
+      category: "personal",
+      type: "task"
+    }
+  },
+  {
+    input: "Plan product launch",
+    expectedOutput: {
+      priority: "high",
+      category: "work",
+      type: "event"
+    }
+  },
+  {
+    input: "Buy new bedding",
+    expectedOutput: {
+      priority: "low",
+      category: "shopping",
+      type: "task"
+    }
+  },
+  {
+    input: "Schedule chimney cleaning",
+    expectedOutput: {
+      priority: "medium",
+      category: "home",
+      type: "task"
+    }
+  },
+  {
+    input: "Research college savings plans",
+    expectedOutput: {
+      priority: "high",
+      category: "finance",
+      type: "note"
+    }
+  }
 ]; 
