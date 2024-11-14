@@ -43,28 +43,43 @@ const ThinkLink: React.FC = () => {
   const tutorials: TutorialStep[] = [
     {
       title: "Creating Tasks",
-      description: "Use natural language to create tasks. You can specify priority, category, and due date.",
+      description: "Use natural language to create tasks. You can specify priority, category, and due date in a single command.",
       example: "create high priority work task meeting with client tomorrow"
     },
     {
       title: "Task Categories",
-      description: "Available categories: work, personal, shopping, health, study, finance, home, family, project, meeting, travel, fitness",
+      description: "Organize tasks by categories. Available options: work, personal, shopping, health, study, finance, home, family, project, meeting, travel, fitness",
       example: "add shopping task buy groceries"
     },
     {
       title: "Setting Priority",
-      description: "Use words like 'urgent', 'important', 'later', or explicitly state priority.",
+      description: "Set task priority using natural language. Use words like 'urgent', 'important', 'later', or explicitly state priority level.",
       example: "create urgent task finish report by friday"
     },
     {
       title: "Time Management",
-      description: "Use natural date expressions: today, tomorrow, next week, or specific days.",
+      description: "Specify due dates using natural expressions: today, tomorrow, next week, or specific days of the week.",
       example: "add task gym workout next monday"
     },
     {
       title: "Task Management",
-      description: "Use commands like 'complete', 'delete', or 'show' to manage tasks.",
-      example: "complete task <task-id>"
+      description: "Manage your tasks using simple commands. Use task IDs for specific actions.",
+      example: "complete task <task-id>\ndelete task <task-id>\nshow all tasks"
+    },
+    {
+      title: "Smart Features",
+      description: "ThinkLink AI understands context and can suggest better task organization.",
+      example: "create meeting with boss about project deadline"
+    },
+    {
+      title: "Task Dependencies",
+      description: "Create tasks that depend on others using natural language.",
+      example: "add task review report after task <task-id>"
+    },
+    {
+      title: "Quick Commands",
+      description: "Use shortcuts for common actions:\n- 'show' or 'list' to view tasks\n- 'done' or 'complete' to mark as finished\n- 'del' or 'remove' to delete",
+      example: "show high priority tasks"
     }
   ];
   
@@ -236,15 +251,28 @@ const ThinkLink: React.FC = () => {
     }
   };
 
-  // Add tutorial component
+  // Modify the tutorial component
   const renderTutorial = () => (
     <AnimatePresence>
       {showTutorial && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          className={`fixed bottom-20 left-6 right-6 md:left-auto md:right-24 md:w-96 bg-${isDarkMode ? 'gray-800' : 'white'} rounded-lg shadow-xl p-6 border border-${isDarkMode ? 'gray-700' : 'gray-200'}`}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className={`
+            absolute 
+            bottom-24  // Position above the input area
+            left-6 
+            w-96 
+            bg-${isDarkMode ? 'gray-800/90' : 'white/90'} 
+            backdrop-blur-sm
+            rounded-lg 
+            shadow-xl 
+            p-6 
+            border 
+            border-${isDarkMode ? 'gray-700' : 'gray-200'}/50
+            z-50
+          `}
         >
           <div className="flex justify-between items-center mb-4">
             <h3 className={`text-${isDarkMode ? 'white' : 'gray-900'} font-semibold`}>
@@ -264,28 +292,55 @@ const ThinkLink: React.FC = () => {
             <p className={`text-${isDarkMode ? 'gray-300' : 'gray-600'}`}>
               {tutorials[currentTutorialStep].description}
             </p>
-            <div className={`bg-${isDarkMode ? 'gray-900' : 'gray-100'} p-3 rounded-md`}>
+            <div className={`bg-${isDarkMode ? 'gray-900/50' : 'gray-100/50'} p-3 rounded-md backdrop-blur-sm`}>
               <code className={`text-${isDarkMode ? 'green-400' : 'green-600'}`}>
                 {tutorials[currentTutorialStep].example}
               </code>
             </div>
-            <button
-              onClick={nextTutorialStep}
-              className={`w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors`}
-            >
-              {currentTutorialStep < tutorials.length - 1 ? 'Next Tip' : 'Got it!'}
-            </button>
+            <div className="flex justify-between">
+              <button
+                onClick={() => currentTutorialStep > 0 && setCurrentTutorialStep(prev => prev - 1)}
+                className={`px-4 py-2 rounded-md ${
+                  currentTutorialStep > 0 
+                    ? `bg-${isDarkMode ? 'gray-700' : 'gray-200'} hover:bg-${isDarkMode ? 'gray-600' : 'gray-300'}` 
+                    : 'opacity-50 cursor-not-allowed'
+                } transition-colors`}
+                disabled={currentTutorialStep === 0}
+              >
+                Previous
+              </button>
+              <button
+                onClick={nextTutorialStep}
+                className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors`}
+              >
+                {currentTutorialStep < tutorials.length - 1 ? 'Next' : 'Got it!'}
+              </button>
+            </div>
           </div>
         </motion.div>
       )}
     </AnimatePresence>
   );
 
-  // Add tutorial toggle button
+  // Update tutorial toggle button position
   const renderTutorialButton = () => (
     <button
       onClick={() => setShowTutorial(true)}
-      className={`fixed bottom-6 left-6 bg-${isDarkMode ? 'blue-600' : 'blue-500'} text-white p-3 rounded-full shadow-lg hover:bg-${isDarkMode ? 'blue-700' : 'blue-600'} focus:outline-none transition-colors duration-300`}
+      className={`
+        absolute 
+        bottom-24 
+        left-6 
+        bg-${isDarkMode ? 'blue-600' : 'blue-500'} 
+        text-white 
+        p-3 
+        rounded-full 
+        shadow-lg 
+        hover:bg-${isDarkMode ? 'blue-700' : 'blue-600'} 
+        focus:outline-none 
+        transition-colors 
+        duration-300
+        z-50
+      `}
       title="Show Tutorial"
     >
       <FiMenu size={20} />
