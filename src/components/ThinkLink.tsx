@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThinkLinkNLP, Task } from './ThinkLink_model';
-import { FiMenu, FiX, FiPlus, FiFilter, FiCheck, FiTrash2, FiEdit2 } from 'react-icons/fi';
+import { MazsAI } from './MazsAI';
+import { FiMenu, FiX, FiPlus, FiFilter, FiCheck, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 import classNames from 'classnames';
 
 interface CommandResult {
-  action: 'create' | 'list' | 'delete' | 'update' | 'complete' | string;
+  action: 'create' | 'list' | 'delete' | 'update' | 'complete' | 'chat' | string;
   task?: Task;
   message: string;
   suggestions?: string[];
+  aiResponse?: string;
 }
 
 // Add new interface for tutorial content
@@ -25,6 +27,7 @@ const ThinkLink: React.FC = () => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const nlpModel = useRef(new ThinkLinkNLP());
+  const aiModel = useRef(new MazsAI());
   
   // State for canvas
   const [canvasVisible, setCanvasVisible] = useState(false);
@@ -36,12 +39,23 @@ const ThinkLink: React.FC = () => {
   const [showTutorial, setShowTutorial] = useState(true);
   const [currentTutorialStep, setCurrentTutorialStep] = useState(0);
 
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Collapsed Categories State
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+
   // Add tutorial content
   const tutorials: TutorialStep[] = [
     {
       title: "Creating Tasks",
       description: "Use natural language to create tasks. You can specify priority, category, and due date in a single command.",
       example: "create high priority work task meeting with client tomorrow"
+    },
+    {
+      title: "Chat with AI",
+      description: "Use '/chat' followed by your message to interact with the AI.",
+      example: "/chat Hello, how are you?"
     },
     {
       title: "Task Categories",
@@ -77,16 +91,26 @@ const ThinkLink: React.FC = () => {
       title: "Quick Commands",
       description: "Use shortcuts for common actions:\n- 'show' or 'list' to view tasks\n- 'done' or 'complete' to mark as finished\n- 'del' or 'remove' to delete",
       example: "show high priority tasks"
-    }
+    },
+
   ];
   
   // Memoize filteredTasks to optimize performance and satisfy ESLint
   const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
+    let tempTasks = tasks.filter(task => {
       if (filter === 'all') return true;
       return task.priority === filter;
     });
-  }, [tasks, filter]);
+
+    if (searchQuery.trim()) {
+      tempTasks = tempTasks.filter(task =>
+        task.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (task.context && task.context.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    return tempTasks;
+  }, [tasks, filter, searchQuery]);
   
   // Update canvasVisible when filteredTasks change
   useEffect(() => {
@@ -102,89 +126,141 @@ const ThinkLink: React.FC = () => {
     }
   }, [commandHistory]);
 
+  // Typing Animation Function
+  const typeText = async (text: string) => {
+    for (let i = 1; i <= text.length; i++) {
+      setCommandHistory(prev => {
+        const newHistory = [...prev];
+        newHistory[newHistory.length - 1] = text.slice(0, i);
+        return newHistory;
+      });
+      await new Promise(resolve => setTimeout(resolve,15)); // Adjust typing speed here (ms per character)
+    }
+  };
+
   const handleCommandSubmit = () => {
-    if (currentCommand.trim()) {
-      const result: CommandResult = nlpModel.current.processCommand(currentCommand);
-      
+    const trimmedCommand = currentCommand.trim();
+
+    if (trimmedCommand) {
       // Add command to history
-      setCommandHistory(prev => [...prev, `> ${currentCommand}`]);
-      
-      if (result.action === 'create' && result.task) {
-        setTasks(prev => {
-          const updatedTasks = [...prev, result.task] as Task[];
-          const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
-          setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
-          setCanvasVisible(true);
-          return updatedTasks;
-        });
-        if (result.suggestions && Array.isArray(result.suggestions)) {
-          const suggestions = result.suggestions; // Assign to local variable
-          setCommandHistory(prev => [...prev, `Suggestions: ${suggestions.join(', ')}`]);
-        }
-      }
-      
-      if (result.action === 'list') {
-        const currentCanvas = nlpModel.current.generateAdvancedCanvas(tasks);
-        setCommandHistory(prev => [...prev, result.message, currentCanvas]);
-        setCanvasVisible(true);
-      }
+      setCommandHistory(prev => [...prev, `> ${trimmedCommand}`]);
 
-      if (result.action === 'delete') {
-        const taskId = result.task?.id;
-        if (taskId) {
-          setTasks(prev => {
-            // Remove dashes from both the input ID and stored task IDs for comparison
-            const normalizedInputId = taskId.replace(/-/g, '');
-            const taskExists = prev.find(task => task.id.replace(/-/g, '') === normalizedInputId);
-            
-            if (taskExists) {
-              const updatedTasks = prev.filter(task => task.id.replace(/-/g, '') !== normalizedInputId);
-              const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
-              setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
-              setCanvasVisible(true);
-              return updatedTasks;
-            } else {
-              // If task doesn't exist, add error message to command history
-              setCommandHistory(prev => [...prev, `Error: Task with ID ${taskId} not found`]);
-              return prev; // Return unchanged tasks array
-            }
-          });
+      // Check if the command is a chat command
+      if (trimmedCommand.startsWith('/chat')) {
+        const chatMessage = trimmedCommand.substring(5).trim(); // Remove '/chat' prefix
+        if (chatMessage.length === 0) {
+          setCommandHistory(prev => [...prev, "Error: Please provide a message for the chat."]);
         } else {
-          setCommandHistory(prev => [...prev, result.message]);
+          const aiResponse = aiModel.current.processInput(chatMessage);
+          // Append an empty string as a placeholder for the AI response
+          setCommandHistory(prev => [...prev, ""]);
+          // Start typing animation for AI response
+          typeText(aiResponse);
         }
+        setCurrentCommand('');
+        setShowWelcome(false);
+        return;
       }
 
-      if (result.action === 'update' && result.task) {
-        setTasks(prev => {
-          const updatedTasks = prev.map(task => task.id === result.task!.id ? result.task! : task);
-          const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
-          setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
-          setCanvasVisible(true);
-          return updatedTasks;
-        });
-        if (result.suggestions && Array.isArray(result.suggestions)) {
-          const suggestions = result.suggestions; // Assign to local variable
-          setCommandHistory(prev => [...prev, `Suggestions: ${suggestions.join(', ')}`]);
+      // Otherwise, process as a task command
+      const result: CommandResult = nlpModel.current.processCommand(trimmedCommand);
+      
+      // Get AI response for additional insights or suggestions
+      const aiResponse = aiModel.current.processInput(trimmedCommand);
+      
+      if (['create', 'list', 'delete', 'update', 'complete'].includes(result.action)) {
+        // Handle task-related commands
+        if (result.action === 'create' && result.task) {
+          setTasks(prev => {
+            const updatedTasks = [...prev, result.task] as Task[];
+            const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
+            
+            setCommandHistory(prevHistory => [
+              ...prevHistory, 
+              result.message, 
+              aiResponse, // Add AI commentary
+              updatedCanvas
+            ]);
+            
+            setCanvasVisible(true);
+            return updatedTasks;
+          });
+          if (result.suggestions && Array.isArray(result.suggestions)) {
+            setCommandHistory(prev => [...prev, `Suggestions: ${result.suggestions?.join(', ')}`]);
+          }
         }
+        
+        if (result.action === 'list') {
+          const currentCanvas = nlpModel.current.generateAdvancedCanvas(tasks);
+          setCommandHistory(prev => [...prev, result.message, aiResponse, currentCanvas]);
+          setCanvasVisible(true);
+        }
+
+        if (result.action === 'delete') {
+          const taskId = result.task?.id;
+          if (taskId) {
+            setTasks(prev => {
+              // Remove dashes from both the input ID and stored task IDs for comparison
+              const normalizedInputId = taskId.replace(/-/g, '');
+              const taskExists = prev.find(task => task.id.replace(/-/g, '') === normalizedInputId);
+              
+              if (taskExists) {
+                const updatedTasks = prev.filter(task => task.id.replace(/-/g, '') !== normalizedInputId);
+                const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
+                setCommandHistory(prevHistory => [...prevHistory, result.message, aiResponse, updatedCanvas]);
+                setCanvasVisible(true);
+                return updatedTasks;
+              } else {
+                // If task doesn't exist, add error message to command history
+                setCommandHistory(prev => [...prev, `Error: Task with ID ${taskId} not found`]);
+                return prev; // Return unchanged tasks array
+              }
+            });
+          } else {
+            setCommandHistory(prev => [...prev, result.message, aiResponse]);
+          }
+        }
+
+        if (result.action === 'update' && result.task) {
+          setTasks(prev => {
+            const updatedTasks = prev.map(task => task.id === result.task!.id ? result.task! : task);
+            const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
+            setCommandHistory(prevHistory => [...prevHistory, result.message, aiResponse, updatedCanvas]);
+            setCanvasVisible(true);
+            return updatedTasks;
+          });
+          if (result.suggestions && Array.isArray(result.suggestions)) {
+            setCommandHistory(prev => [...prev, `Suggestions: ${result.suggestions?.join(', ')}`]);
+          }
+        }
+
+        if (result.action === 'complete' && result.task?.id) {
+          setTasks(prev => {
+            const updatedTasks = prev.map(task => 
+              task.id === result.task?.id ? { ...task, status: 'done' as const } : task
+            );
+            // Sort tasks to move completed ones to the bottom
+            const sortedTasks = [
+              ...updatedTasks.filter(task => task.status === 'pending'),
+              ...updatedTasks.filter(task => task.status === 'done')
+            ];
+            return sortedTasks;
+          });
+          setCommandHistory(prev => [...prev, result.message, aiResponse]);
+        }
+        
+        // Handle other actions (e.g., schedule) here
+        
+        setCurrentCommand('');
+        setShowWelcome(false);
+      } else {
+        // If not a recognized task action, treat it as a general chat
+        const aiResponse = aiModel.current.processInput(trimmedCommand);
+        setCommandHistory(prev => [...prev, ""]); // Placeholder for AI response
+        typeText(aiResponse);
+        setCurrentCommand('');
+        setShowWelcome(false);
       }
-      if (result.action === 'complete' && result.task?.id) {
-        setTasks(prev => {
-          const updatedTasks = prev.map(task => 
-            task.id === result.task?.id ? { ...task, status: 'pending' as const } : task
-          );
-          // Sort tasks to move completed ones to the bottom
-          const sortedTasks = [
-            ...updatedTasks.filter(task => task.status === 'pending'),
-            ...updatedTasks.filter(task => task.status === 'done')
-          ];
-          return sortedTasks;
-        });
-      }
-      
-      // Handle other actions (e.g., schedule) here
-      
-      setCurrentCommand('');
-      setShowWelcome(false);
     }
   };
 
@@ -303,7 +379,7 @@ const ThinkLink: React.FC = () => {
     </AnimatePresence>
   );
 
-  // Update tutorial toggle button position
+  // Update the tutorial toggle button position
   const renderTutorialButton = () => (
     <button
       onClick={() => setShowTutorial(true)}
@@ -341,6 +417,29 @@ const ThinkLink: React.FC = () => {
       setCommandHistory(prev => [...prev, result.message]);
     }
   };
+
+  // Toggle category collapse
+  const toggleCategory = (category: string) => {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  // Add AI model statistics to the canvas sidebar
+  const renderAIStats = () => (
+    <div className="mt-6 border-t border-white pt-4">
+      <h3 className="font-medium mb-2">AI Assistant Statistics</h3>
+      <div className="flex justify-between mb-2">
+        <span>Vocabulary Size:</span>
+        <span>{aiModel.current.getModelStats().vocabularySize}</span>
+      </div>
+      <div className="flex justify-between mb-2">
+        <span>Training Examples:</span>
+        <span>{aiModel.current.getModelStats().trainingExamples}</span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="h-screen w-full p-6 flex transition-colors duration-500 overflow-hidden bg-black text-white">
@@ -407,7 +506,7 @@ const ThinkLink: React.FC = () => {
               >
                 Welcome to ThinkLink Terminal v1.0.0
                 <br />
-                Type 'help' to see available commands
+                Type '/chat your message' to interact with the AI or use other commands to manage tasks.
               </motion.div>
             )}
           </AnimatePresence>
@@ -451,7 +550,7 @@ const ThinkLink: React.FC = () => {
               onChange={(e) => setCurrentCommand(e.target.value)}
               onKeyDown={handleKeyDown}
               className="flex-1 ml-2 bg-transparent outline-none caret-emerald-400 font-mono text-white"
-              placeholder="Use Natural language to give commands"
+              placeholder="use Natural Language to give commands "
               autoFocus
               spellCheck={false}
             />
@@ -486,68 +585,24 @@ const ThinkLink: React.FC = () => {
                 <FiX size={20} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              {Object.keys(groupedTasks).length > 0 ? (
-                Object.entries(groupedTasks).map(([category, categoryTasks]) => (
-                  <div key={category} className="mb-6">
-                    <h3 className="text-xl font-medium mb-2 text-goldenHour capitalize">{category}</h3>
-                    <ul className="space-y-4">
-                      {categoryTasks.map(task => (
-                        <li key={task.id} className="flex items-start space-x-4">
-                          <div className="mt-1">
-                            {task.priority === 'high' && <FiCheck className="text-red-500" />}
-                            {task.priority === 'medium' && <FiCheck className="text-yellow-500" />}
-                            {task.priority === 'low' && <FiCheck className="text-green-500" />}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center">
-                              <span className="text-white font-semibold">{task.content}</span>
-                              <span className="text-gray-400 text-xs">{task.status === 'done' ? '✅ Completed' : '🕒 Pending'}</span>
-                            </div>
-                            {task.due && (
-                              <div className="text-gray-300 text-sm">
-                                📅 Due: {task.due.toLocaleDateString()}
-                              </div>
-                            )}
-                            {task.context && (
-                              <div className="text-gray-500 text-xs mt-1">
-                                {task.context}
-                              </div>
-                            )}
-                            {/* Dependency Indicator */}
-                            {task.context?.includes('depends on') && (
-                              <div className="text-blue-400 text-xs mt-1">
-                                Depends on Task ID: {task.context.split(': ')[1]}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-col space-y-2">
-                            <button
-                              onClick={() => handleEditTask(task.id)}
-                              className="text-blue-400 hover:opacity-80"
-                              title="Edit Task"
-                            >
-                              <FiEdit2 />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="text-red-400 hover:opacity-80"
-                              title="Delete Task"
-                            >
-                              <FiTrash2 />
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))
-              ) : (
-                <div className="text-gray-400">No tasks available. Start adding some!</div>
+            {/* Search Bar */}
+            <div className="mb-4 flex items-center bg-gray-800 rounded-md p-2">
+              <FiSearch className="text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="ml-2 bg-transparent outline-none text-sm text-white flex-1"
+                placeholder="Search tasks..."
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')}>
+                  <FiX className="text-gray-400" />
+                </button>
               )}
             </div>
             {/* Filters and Statistics */}
-            <div className="mt-6">
+            <div className="mb-4">
               <h3 className="font-medium mb-2 flex items-center">
                 <FiFilter className="mr-2" /> Filters
               </h3>
@@ -586,6 +641,83 @@ const ThinkLink: React.FC = () => {
                 </button>
               </div>
             </div>
+            {/* Task List */}
+            <div className="flex-1 overflow-y-auto">
+              {Object.keys(groupedTasks).length > 0 ? (
+                Object.entries(groupedTasks).map(([category, categoryTasks]) => (
+                  <div key={category} className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-xl font-medium text-goldenHour capitalize">{category}</h3>
+                      <button onClick={() => toggleCategory(category)}>
+                        {collapsedCategories[category] ? <FiChevronDown /> : <FiChevronUp />}
+                      </button>
+                    </div>
+                    <AnimatePresence>
+                      {!collapsedCategories[category] && (
+                        <motion.ul
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="space-y-4"
+                        >
+                          {categoryTasks.map(task => (
+                            <li key={task.id} className="flex items-start space-x-4">
+                              <div className="mt-1">
+                                {task.priority === 'high' && <FiCheck className="text-red-500" />}
+                                {task.priority === 'medium' && <FiEdit2 className="text-yellow-500" />}
+                                {task.priority === 'low' && <FiTrash2 className="text-green-500" />}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-white font-semibold">{task.content}</span>
+                                  <span className="text-gray-400 text-xs">{task.status === 'done' ? '✅ Completed' : '🕒 Pending'}</span>
+                                </div>
+                                {task.due && (
+                                  <div className="text-gray-300 text-sm">
+                                    📅 Due: {new Date(task.due).toLocaleDateString()}
+                                  </div>
+                                )}
+                                {task.context && (
+                                  <div className="text-gray-500 text-xs mt-1">
+                                    {task.context}
+                                  </div>
+                                )}
+                                {/* Dependency Indicator */}
+                                {task.context?.includes('depends on') && (
+                                  <div className="text-blue-400 text-xs mt-1">
+                                    Depends on Task ID: {task.context.split(': ')[1]}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col space-y-2">
+                                <button
+                                  onClick={() => handleEditTask(task.id)}
+                                  className="text-blue-400 hover:opacity-80"
+                                  title="Edit Task"
+                                >
+                                  <FiEdit2 />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTask(task.id)}
+                                  className="text-red-400 hover:opacity-80"
+                                  title="Delete Task"
+                                >
+                                  <FiTrash2 />
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-400">No tasks available. Start adding some!</div>
+              )}
+            </div>
+            {/* Training Statistics */}
             <div className="mt-6">
               <h3 className="font-medium mb-2">Training Statistics</h3>
               <div className="flex justify-between mb-2">
@@ -621,6 +753,8 @@ const ThinkLink: React.FC = () => {
                 )}
               </div>
             </div>
+            {/* AI Assistant Statistics */}
+            {renderAIStats()}
           </motion.div>
         )}
       </AnimatePresence>
