@@ -1,19 +1,22 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Landing from './components/Landing'
-import Signup from './components/Signup'
-import ThinkLink from './components/ThinkLink'
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Landing from './components/Landing';
+import Features from './components/Features';
+import Pricing from './components/Pricing';
+import About from './components/About';
 
-function App() {
+const App: React.FC = () => {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/thinklink" element={<ThinkLink />} />
-        {/* Add other routes as needed */}
+        <Route path="/features" element={<Features />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/about" element={<About />} />
+        {/* Add more routes as needed */}
       </Routes>
-    </BrowserRouter>
-  )
-}
+    </Router>
+  );
+};
 
-export default App
+export default App;
