@@ -98,8 +98,7 @@ const Landing: React.FC = () => {
               <p className={`text-xl lg:text-2xl leading-relaxed max-w-2xl ${
                 darkMode ? 'text-gray-300' : 'text-gray-700'
               }`}>
-                Harness the power of AI to convert your natural language into organized, 
-                structured tasks and workflows seamlessly.
+                We (GMTStudio) are developing a new AI tools, by using Mazs AI v1.5.0 anatra  and ThinkLink AI v1.0.0 Model.
               </p>
 
               {/* Call-to-Action Buttons */}
