@@ -5,7 +5,6 @@ import {
   Gear, 
   Rocket, 
   ChevronRight,
-  CodeCompare,
   Clock
 } from '@gravity-ui/icons';
 import logoDark from '../assets/GMTStudio_.png';
@@ -230,7 +229,11 @@ const Landing: React.FC = () => {
           <div className="grid md:grid-cols-4 gap-16">
             <div>
               <div className="flex items-center text-white mb-6">
-                <CodeCompare className="w-6 h-6" />
+                <img 
+                  src={darkMode ? logoDark : logoLight} 
+                  alt="ThinkLink Logo" 
+                  className="w-10 h-10"
+                />
                 <span className="ml-3 text-lg font-bold">ThinkLink</span>
               </div>
               <p className="text-sm max-w-xs">
