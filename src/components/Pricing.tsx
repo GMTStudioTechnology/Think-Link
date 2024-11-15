@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CodeCompare, CircleCheck } from '@gravity-ui/icons';
+import Gicon from '../assets/Gicon.png';
+import { CircleCheck } from '@gravity-ui/icons';
 
 const Pricing: React.FC = () => {
   const [isAnnual, setIsAnnual] = useState(true);
@@ -56,8 +57,14 @@ const Pricing: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
           <div className="flex justify-between items-center h-20">
             <Link to="/" className="flex items-center">
-              <CodeCompare className="w-8 h-8 text-blue-500" />
-              <span className="ml-3 text-2xl font-semibold tracking-tight">ThinkLink</span>
+              <img 
+                src={Gicon}
+                alt="G Logo" 
+                className="w-12 h-12" 
+              />
+              <span className={`ml-3 text-2xl font-semibold tracking-tight`}>
+                ThinkLink
+              </span>
             </Link>
           </div>
         </div>

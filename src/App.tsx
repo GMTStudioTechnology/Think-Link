@@ -4,6 +4,8 @@ import Landing from './components/Landing';
 import Features from './components/Features';
 import Pricing from './components/Pricing';
 import About from './components/About';
+import Signup from './components/Signup';
+import ThinkLink from './components/ThinkLink';
 
 const App: React.FC = () => {
   return (
@@ -13,6 +15,8 @@ const App: React.FC = () => {
         <Route path="/features" element={<Features />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/about" element={<About />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/thinklink" element={<ThinkLink />} />
         {/* Add more routes as needed */}
       </Routes>
     </Router>

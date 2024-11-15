@@ -8,6 +8,8 @@ import {
   CodeCompare,
   Clock
 } from '@gravity-ui/icons';
+import logoDark from '../assets/GMTStudio_.png';
+import logoLight from '../assets/Gicon.png';
 import ThinkLink from '../assets/ThinkLink_1.png';
 
 const Landing: React.FC = () => {
@@ -33,7 +35,11 @@ const Landing: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center">
-              <CodeCompare className="w-8 h-8 text-blue-500" />
+              <img 
+                src={darkMode ? logoDark : logoLight}
+                alt="ThinkLink Logo" 
+                className="w-12 h-12" 
+              />
               <span className="ml-3 text-2xl font-semibold tracking-tight">ThinkLink</span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
