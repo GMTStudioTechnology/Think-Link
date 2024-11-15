@@ -9,7 +9,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/ThinkLink" element={<ThinkLink />} />
+        <Route path="/thinklink" element={<ThinkLink />} />
         {/* Add other routes as needed */}
       </Routes>
     </BrowserRouter>

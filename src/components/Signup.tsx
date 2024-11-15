@@ -27,7 +27,7 @@ const Signup: React.FC = () => {
 
     if (isLogin) {
       if (formData.email === 'GMTStudioTech@user.free.com' && formData.password === 'GMT001A_Free') {
-        navigate('/ThinkLink');
+        navigate('/thinklink');
       } else {
         setError('Invalid credentials');
       }
