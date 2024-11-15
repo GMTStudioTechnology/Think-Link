@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Display, Bulb, CirclesIntersection, ArrowRight } from '@gravity-ui/icons'; // Importing Gravity UI Icons
-
+import About from "../assets/About.png"
 const Features: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white font-sans">
@@ -101,7 +101,9 @@ const Features: React.FC = () => {
               </Link>
             </div>
             <div className="lg:w-1/2">
-              <div className="rounded-3xl bg-gray-800 aspect-video w-full"></div>
+              <div className="rounded-3xl bg-gray-800 aspect-video w-full">
+                <img src={About} alt="About" className="rounded-3xl aspect-video w-full object-cover" />
+              </div>
             </div>
           </div>
         </div>
