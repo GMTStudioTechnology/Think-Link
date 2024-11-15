@@ -28,8 +28,7 @@ const ThinkLink: React.FC = () => {
   
   // State for canvas
   const [canvasVisible, setCanvasVisible] = useState(false);
-  const [canvasContent, setCanvasContent] = useState('');
-  
+
   // Filter State
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   
@@ -89,14 +88,12 @@ const ThinkLink: React.FC = () => {
     });
   }, [tasks, filter]);
   
-  // Update canvasContent when filteredTasks change
+  // Update canvasVisible when filteredTasks change
   useEffect(() => {
-    const currentCanvas = nlpModel.current.generateAdvancedCanvas(filteredTasks);
-    setCanvasContent(currentCanvas);
     if (filteredTasks.length > 0) {
       setCanvasVisible(true);
     }
-  }, [filteredTasks]); // Include filteredTasks in dependencies
+  }, [filteredTasks]);
   
   // Scroll to bottom when command history updates
   useEffect(() => {
@@ -115,10 +112,8 @@ const ThinkLink: React.FC = () => {
       if (result.action === 'create' && result.task) {
         setTasks(prev => {
           const updatedTasks = [...prev, result.task] as Task[];
-          // Generate and add advanced canvas after updating tasks
           const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
           setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
-          setCanvasContent(updatedCanvas);
           setCanvasVisible(true);
           return updatedTasks;
         });
@@ -131,7 +126,6 @@ const ThinkLink: React.FC = () => {
       if (result.action === 'list') {
         const currentCanvas = nlpModel.current.generateAdvancedCanvas(tasks);
         setCommandHistory(prev => [...prev, result.message, currentCanvas]);
-        setCanvasContent(currentCanvas);
         setCanvasVisible(true);
       }
 
@@ -147,7 +141,6 @@ const ThinkLink: React.FC = () => {
               const updatedTasks = prev.filter(task => task.id.replace(/-/g, '') !== normalizedInputId);
               const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
               setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
-              setCanvasContent(updatedCanvas);
               setCanvasVisible(true);
               return updatedTasks;
             } else {
@@ -166,7 +159,6 @@ const ThinkLink: React.FC = () => {
           const updatedTasks = prev.map(task => task.id === result.task!.id ? result.task! : task);
           const updatedCanvas = nlpModel.current.generateAdvancedCanvas(updatedTasks);
           setCommandHistory(prevHistory => [...prevHistory, result.message, updatedCanvas]);
-          setCanvasContent(updatedCanvas);
           setCanvasVisible(true);
           return updatedTasks;
         });
@@ -324,6 +316,32 @@ const ThinkLink: React.FC = () => {
     </button>
   );
 
+  // Utility function to group tasks by category
+  const groupedTasks = useMemo(() => {
+    return tasks.reduce((acc, task) => {
+      if (!acc[task.category]) {
+        acc[task.category] = [];
+      }
+      acc[task.category].push(task);
+      return acc;
+    }, {} as Record<string, Task[]>);
+  }, [tasks]);
+
+  // Add these functions near the top of your component, with other state/handlers
+  const handleEditTask = (taskId: string) => {
+    // For now, we'll just log - you can implement the edit UI later
+    console.log('Edit task:', taskId);
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    // Implement delete functionality using the existing command processor
+    const result = nlpModel.current.processCommand(`delete task ${taskId}`);
+    if (result.action === 'delete') {
+      setTasks(prev => prev.filter(task => task.id !== taskId));
+      setCommandHistory(prev => [...prev, result.message]);
+    }
+  };
+
   return (
     <div className="h-screen w-full p-6 flex transition-colors duration-500 overflow-hidden bg-black text-white">
       <motion.div
@@ -456,7 +474,7 @@ const ThinkLink: React.FC = () => {
             animate={{ x: 0 }}
             exit={{ x: 800, transition: { duration: 0 } }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="w-[800px] h-full backdrop-blur-xl rounded-2xl shadow-2xl p-6 overflow-y-auto flex flex-col bg-black border border-white"
+            className="w-full md:w-[400px] lg:w-[600px] h-full backdrop-blur-xl rounded-2xl shadow-2xl p-6 overflow-y-auto flex flex-col bg-black border border-white"
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-white">ThinkLink Canvas</h2>
@@ -468,10 +486,65 @@ const ThinkLink: React.FC = () => {
                 <FiX size={20} />
               </button>
             </div>
-            <div className="bg-black p-6 rounded-lg flex-1 overflow-y-auto mb-6">
-              <pre className="whitespace-pre-wrap text-base leading-relaxed text-gray-300">
-                {canvasContent}
-              </pre>
+            <div className="flex-1 overflow-y-auto">
+              {Object.keys(groupedTasks).length > 0 ? (
+                Object.entries(groupedTasks).map(([category, categoryTasks]) => (
+                  <div key={category} className="mb-6">
+                    <h3 className="text-xl font-medium mb-2 text-goldenHour capitalize">{category}</h3>
+                    <ul className="space-y-4">
+                      {categoryTasks.map(task => (
+                        <li key={task.id} className="flex items-start space-x-4">
+                          <div className="mt-1">
+                            {task.priority === 'high' && <FiCheck className="text-red-500" />}
+                            {task.priority === 'medium' && <FiCheck className="text-yellow-500" />}
+                            {task.priority === 'low' && <FiCheck className="text-green-500" />}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-center">
+                              <span className="text-white font-semibold">{task.content}</span>
+                              <span className="text-gray-400 text-xs">{task.status === 'done' ? '✅ Completed' : '🕒 Pending'}</span>
+                            </div>
+                            {task.due && (
+                              <div className="text-gray-300 text-sm">
+                                📅 Due: {task.due.toLocaleDateString()}
+                              </div>
+                            )}
+                            {task.context && (
+                              <div className="text-gray-500 text-xs mt-1">
+                                {task.context}
+                              </div>
+                            )}
+                            {/* Dependency Indicator */}
+                            {task.context?.includes('depends on') && (
+                              <div className="text-blue-400 text-xs mt-1">
+                                Depends on Task ID: {task.context.split(': ')[1]}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col space-y-2">
+                            <button
+                              onClick={() => handleEditTask(task.id)}
+                              className="text-blue-400 hover:opacity-80"
+                              title="Edit Task"
+                            >
+                              <FiEdit2 />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTask(task.id)}
+                              className="text-red-400 hover:opacity-80"
+                              title="Delete Task"
+                            >
+                              <FiTrash2 />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-400">No tasks available. Start adding some!</div>
+              )}
             </div>
             {/* Filters and Statistics */}
             <div className="mt-6">
@@ -530,9 +603,22 @@ const ThinkLink: React.FC = () => {
             <div className="mt-6">
               <h3 className="font-medium mb-2">Task Dependencies</h3>
               <div className="bg-black p-4 rounded-lg">
-                <pre className="whitespace-pre-wrap text-base leading-relaxed text-gray-300">
-                  {nlpModel.current.visualizeDependencies(tasks)}
-                </pre>
+                {tasks.some(task => task.context?.includes('depends on')) ? (
+                  <ul className="list-disc list-inside text-gray-300">
+                    {tasks
+                      .filter(task => task.context?.includes('depends on'))
+                      .map(task => (
+                        <li key={task.id}>
+                          <span className="text-white">{task.content}</span> depends on Task ID{' '}
+                          <span className="text-yellow-400">
+                            {task.context?.split(': ')[1] || 'Unknown'}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <div className="text-gray-400">No dependencies found.</div>
+                )}
               </div>
             </div>
           </motion.div>
