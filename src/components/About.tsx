@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-
-
+import Gicon from '../assets/Gicon.png';
+import AboutImage from '../assets/About.png';
 const About: React.FC = () => {
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
@@ -68,9 +68,9 @@ const About: React.FC = () => {
                 At ThinkLink, we believe that technology should adapt to humans, not the other way around. Our AI-powered solutions are designed to understand your unique work patterns and help you achieve more with less effort.
               </p>
             </div>
-            <div className="md:w-1/2 mt-8 md:mt-0">
+            <div className="md:w-full mt-8 md:mt-0">
               {/* Replace with an appropriate image */}
-              <img src="/path-to-mission-image.jpg" alt="Our Mission" className="w-full rounded-xl shadow-lg" />
+              <img src={AboutImage} alt="Our Mission" className="w-[800px] h-[500px] object-cover rounded-xl shadow-lg" />
             </div>
           </div>
         </div>
@@ -88,23 +88,23 @@ const About: React.FC = () => {
           <div className="grid md:grid-cols-3 gap-16">
             {/* Team Member 1 */}
             <div className="text-center">
-              <img src="/path-to-member1.jpg" alt="Team Member 1" className="w-32 h-32 rounded-full mx-auto mb-4 object-cover" />
-              <h3 className="text-2xl font-semibold">Jane Doe</h3>
+              <img src={Gicon} alt="Team Member 1" className="w-32 h-32 rounded-full mx-auto mb-4 object-cover" />
+              <h3 className="text-2xl font-semibold">Alston Chang</h3>
               <p className="text-gray-600">CEO & Founder</p>
             </div>
 
             {/* Team Member 2 */}
             <div className="text-center">
-              <img src="/path-to-member2.jpg" alt="Team Member 2" className="w-32 h-32 rounded-full mx-auto mb-4 object-cover" />
-              <h3 className="text-2xl font-semibold">John Smith</h3>
-              <p className="text-gray-600">Chief Technology Officer</p>
+              <img src={Gicon} alt="Team Member 2" className="w-32 h-32 rounded-full mx-auto mb-4 object-cover" />
+              <h3 className="text-2xl font-semibold">Lucus yeh</h3>
+              <p className="text-gray-600">CEO & Founder</p>
             </div>
 
             {/* Team Member 3 */}
             <div className="text-center">
-              <img src="/path-to-member3.jpg" alt="Team Member 3" className="w-32 h-32 rounded-full mx-auto mb-4 object-cover" />
-              <h3 className="text-2xl font-semibold">Emily Johnson</h3>
-              <p className="text-gray-600">Head of Design</p>
+              <img src={Gicon} alt="Team Member 3" className="w-32 h-32 rounded-full mx-auto mb-4 object-cover" />
+              <h3 className="text-2xl font-semibold">Willy Lin</h3>
+              <p className="text-gray-600">CEO & Founder</p>
             </div>
 
             {/* Add more team members as needed */}
