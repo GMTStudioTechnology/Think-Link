@@ -385,22 +385,6 @@ export class ThinkLinkNLP {
     }
   }
 
-  private extractTaskContent(tokens: string[]): string {
-    return tokens
-      .filter(token => 
-        !this.keywords.priority.high.includes(token) &&
-        !this.keywords.priority.medium.includes(token) &&
-        !this.keywords.priority.low.includes(token) &&
-        !this.keywords.categories.includes(token) &&
-        !this.keywords.timeIndicators.includes(token) &&
-        !this.keywords.actions.includes(token) &&
-        !this.keywords.contextual.includes(token) &&
-        !this.sentimentWeights.positive.includes(token) &&
-        !this.sentimentWeights.negative.includes(token)
-      )
-      .join(' ');
-  }
-
   // Add smart date parsing
   private extractSmartDate(tokens: string[]): { due?: Date; recurring?: string } {
     const text = tokens.join(' ');
@@ -918,7 +902,7 @@ export class ThinkLinkNLP {
    * Enhanced Natural Language Understanding
    * Analyzes text to extract structured information about tasks
    */
-  private analyzeText(text: string): NLUResult {
+  public analyzeText(text: string): NLUResult {
     const sentences = this.splitIntoSentences(text);
     const parsedSentences = sentences.map(sentence => this.parseSentence(sentence));
     
@@ -1198,6 +1182,22 @@ export class ThinkLinkNLP {
 
     // Normalize score between 0 and 1
     return Math.min(1, score);
+  }
+
+  public extractTaskContent(tokens: string[]): string {
+    return tokens
+      .filter(token => 
+        !this.keywords.priority.high.includes(token) &&
+        !this.keywords.priority.medium.includes(token) &&
+        !this.keywords.priority.low.includes(token) &&
+        !this.keywords.categories.includes(token) &&
+        !this.keywords.timeIndicators.includes(token) &&
+        !this.keywords.actions.includes(token) &&
+        !this.keywords.contextual.includes(token) &&
+        !this.sentimentWeights.positive.includes(token) &&
+        !this.sentimentWeights.negative.includes(token)
+      )
+      .join(' ');
   }
 }
 
