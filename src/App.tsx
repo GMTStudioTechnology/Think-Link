@@ -5,6 +5,7 @@ import Features from './components/Features';
 import Pricing from './components/Pricing';
 import About from './components/About';
 import Signup from './components/Signup';
+import Login from './components/Login';
 import ThinkLink from './components/ThinkLink';
 import PrivateRoute from './components/PrivateRoute';
 import { AuthProvider } from './context/AuthContext';
@@ -19,6 +20,7 @@ const App: React.FC = () => {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/about" element={<About />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
           <Route
             path="/thinklink"
             element={
