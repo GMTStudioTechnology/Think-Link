@@ -59,6 +59,11 @@ const ThinkLink: React.FC = () => {
   // Collapsed Categories State
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
 
+  // Pomodoro State
+  const [isPomodoroRunning, setIsPomodoroRunning] = useState(false);
+  const [pomodoroTimeLeft, setPomodoroTimeLeft] = useState(1500); // 25 minutes in seconds
+  const pomodoroIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   // Add tutorial content
   const tutorials: TutorialStep[] = [
     {
@@ -459,6 +464,60 @@ const ThinkLink: React.FC = () => {
     logout();
   };
 
+  const handlePomodoroAction = (action: string) => {
+    if (action === 'start') {
+      if (!isPomodoroRunning) {
+        setIsPomodoroRunning(true);
+        const interval = setInterval(() => {
+          setPomodoroTimeLeft(prev => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              setIsPomodoroRunning(false);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        pomodoroIntervalRef.current = interval;
+      }
+    } else if (action === 'stop') {
+      if (pomodoroIntervalRef.current) {
+        clearInterval(pomodoroIntervalRef.current);
+        pomodoroIntervalRef.current = null;
+      }
+      setIsPomodoroRunning(false);
+      setPomodoroTimeLeft(1500);
+    } else if (action === 'pause') {
+      if (pomodoroIntervalRef.current) {
+        clearInterval(pomodoroIntervalRef.current);
+        pomodoroIntervalRef.current = null;
+      }
+      setIsPomodoroRunning(false);
+    } else if (action === 'resume') {
+      if (!isPomodoroRunning) {
+        setIsPomodoroRunning(true);
+        const interval = setInterval(() => {
+          setPomodoroTimeLeft(prev => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              setIsPomodoroRunning(false);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        pomodoroIntervalRef.current = interval;
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (pomodoroTimeLeft === 0 && isPomodoroRunning) {
+      alert('Pomodoro session completed! Time for a break.');
+      setIsPomodoroRunning(false);
+    }
+  }, [pomodoroTimeLeft, isPomodoroRunning]);
+
   return (
     <div className="h-screen w-full p-6 flex transition-colors duration-500 overflow-hidden bg-black text-white">
       <motion.div
@@ -792,6 +851,51 @@ const ThinkLink: React.FC = () => {
       {/* Add tutorial components */}
       {renderTutorial()}
       {!showTutorial && renderTutorialButton()}
+
+      {/* Pomodoro Timer UI */}
+      {isPomodoroRunning || pomodoroTimeLeft < 1500 ? (
+        <div className="fixed top-6 right-6 bg-gray-800 p-4 rounded-lg shadow-lg">
+          <h3 className="text-lg font-semibold mb-2">Pomodoro Timer</h3>
+          <div className="text-2xl mb-4">
+            {Math.floor(pomodoroTimeLeft / 60)
+              .toString()
+              .padStart(2, '0')}
+            :
+            {(pomodoroTimeLeft % 60).toString().padStart(2, '0')}
+          </div>
+          <div className="flex space-x-2">
+            {!isPomodoroRunning && pomodoroTimeLeft > 0 && (
+              <button
+                onClick={() => handlePomodoroAction('resume')}
+                className="px-4 py-2 bg-green-500 rounded hover:bg-green-600"
+              >
+                Resume
+              </button>
+            )}
+            {isPomodoroRunning ? (
+              <button
+                onClick={() => handlePomodoroAction('pause')}
+                className="px-4 py-2 bg-yellow-500 rounded hover:bg-yellow-600"
+              >
+                Pause
+              </button>
+            ) : (
+              <button
+                onClick={() => handlePomodoroAction('start')}
+                className="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600"
+              >
+                Start
+              </button>
+            )}
+            <button
+              onClick={() => handlePomodoroAction('stop')}
+              className="px-4 py-2 bg-red-500 rounded hover:bg-red-600"
+            >
+              Stop
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
