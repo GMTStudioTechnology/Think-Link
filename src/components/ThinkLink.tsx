@@ -134,7 +134,7 @@ const ThinkLink: React.FC = () => {
         newHistory[newHistory.length - 1] = text.slice(0, i);
         return newHistory;
       });
-      await new Promise(resolve => setTimeout(resolve,15)); // Adjust typing speed here (ms per character)
+      await new Promise(resolve => setTimeout(resolve,1)); // Adjust typing speed here (ms per character)
     }
   };
 
