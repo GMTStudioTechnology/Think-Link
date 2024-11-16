@@ -5,7 +5,7 @@ import logoDark from '../assets/GMTStudio_.png';
 import logoLight from '../assets/Gicon.png';
 import { AuthContext } from '../context/AuthContext';
 
-const Signup: React.FC = () => {
+const Login: React.FC = () => {
   const navigate = useNavigate();
   const darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const { login } = useContext(AuthContext);
@@ -14,13 +14,12 @@ const Signup: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: ''
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
@@ -28,22 +27,11 @@ const Signup: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    const signupSuccess = true;
-
-    if (signupSuccess) {
-      const success = await login(formData.email, formData.password);
-      if (success) {
-        navigate('/thinklink');
-      } else {
-        setError('Signup successful, but failed to log in');
-      }
+    const success = await login(formData.email, formData.password);
+    if (success) {
+      navigate('/thinklink');
     } else {
-      setError('Signup failed. Please try again.');
+      setError('Invalid credentials');
     }
   };
 
@@ -86,9 +74,9 @@ const Signup: React.FC = () => {
           transition={{ duration: 0.5 }}
         >
           <div className="text-center mb-8">
-            <h2 className="text-4xl font-extrabold mb-2">Create Your Account</h2>
+            <h2 className="text-4xl font-extrabold mb-2">Welcome Back</h2>
             <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Join us to enhance your productivity
+              Sign in to continue to ThinkLink
             </p>
           </div>
 
@@ -143,43 +131,23 @@ const Signup: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 transition-all ${
-                  darkMode
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                    : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 
                        transition-colors duration-300 font-semibold text-lg shadow-md"
             >
-              Sign Up
+              Login
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-              Already have an account?{' '}
+              Don't have an account?{' '}
               <Link
-                to="/login"
+                to="/signup"
                 className="text-blue-500 hover:text-blue-600 font-semibold"
               >
-                Log in
+                Sign up
               </Link>
             </p>
           </div>
@@ -189,4 +157,4 @@ const Signup: React.FC = () => {
   );
 };
 
-export default Signup;
+export default Login; 

@@ -1,9 +1,22 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThinkLinkNLP, Task } from './ThinkLink_model';
 import { MazsAI } from './MazsAI';
-import { FiMenu, FiX, FiPlus, FiFilter, FiCheck, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
+import {
+  FiMenu,
+  FiX,
+  FiPlus,
+  FiFilter,
+  FiCheck,
+  FiTrash2,
+  FiEdit2,
+  FiChevronDown,
+  FiChevronUp,
+  FiSearch,
+  FiLogOut,
+} from 'react-icons/fi';
 import classNames from 'classnames';
+import { AuthContext } from '../context/AuthContext';
 
 interface CommandResult {
   action: 'create' | 'list' | 'delete' | 'update' | 'complete' | 'chat' | string;
@@ -21,6 +34,7 @@ interface TutorialStep {
 }
 
 const ThinkLink: React.FC = () => {
+  const { logout } = useContext(AuthContext);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [currentCommand, setCurrentCommand] = useState('');
   const [showWelcome, setShowWelcome] = useState(true);
@@ -441,6 +455,10 @@ const ThinkLink: React.FC = () => {
     </div>
   );
 
+  const handleLogout = () => {
+    logout();
+  };
+
   return (
     <div className="h-screen w-full p-6 flex transition-colors duration-500 overflow-hidden bg-black text-white">
       <motion.div
@@ -489,7 +507,10 @@ const ThinkLink: React.FC = () => {
               transition={expandTransition}
               className="text-white hover:opacity-80" 
               title="Close"
-            >×</motion.button>
+              onClick={handleLogout}
+            >
+              <FiLogOut size={20} />
+            </motion.button>
           </div>
         </div>
 
