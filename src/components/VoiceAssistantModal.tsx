@@ -105,29 +105,44 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     setAiResponse(response);
     
     if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
       window.speechSynthesis.cancel();
       
+      // Wait for voices to load
+      let voices = window.speechSynthesis.getVoices();
+      if (!voices.length) {
+        await new Promise(resolve => {
+          window.speechSynthesis.onvoiceschanged = () => {
+            voices = window.speechSynthesis.getVoices();
+            resolve(true);
+          };
+        });
+      }
+
       const utterance = new SpeechSynthesisUtterance(response);
       
-      // Get available voices
-      const voices = window.speechSynthesis.getVoices();
+      // Log available voices
+      console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
       
-      // Try different female voices in order of preference
+      // Prioritize British male voices
       const preferredVoice = voices.find(voice => 
-        voice.name.includes('Samantha') || // MacOS female voice
-        voice.name.includes('Microsoft Zira') || // Windows female voice
-        (voice.name.includes('Female') && voice.lang.includes('en')) ||
-        (voice.lang.includes('en-US') && voice.name.includes('Google'))
-      ) || voices.find(voice => voice.lang.includes('en')); // fallback to any English voice
+        voice.name.includes('Google UK English Male') ||
+        (voice.name.includes('Male') && voice.lang.includes('en-GB')) ||
+        voice.name.includes('British') ||
+        voice.lang.includes('en-GB')
+      );
       
       if (preferredVoice) {
+        console.log('Selected British voice:', preferredVoice.name);
         utterance.voice = preferredVoice;
+        // Force British English language
+        utterance.lang = 'en-GB';
+      } else {
+        console.log('No British voice found, using default');
       }
       
-      // Adjust speech parameters for better quality
-      utterance.rate = 1.0;
-      utterance.pitch = 1.1; // Slightly higher pitch for female voice
+      // Adjust for British accent characteristics
+      utterance.rate = 0.9;     // Slightly slower for clarity
+      utterance.pitch = 0.95;   // Slightly lower pitch for more natural British sound
       utterance.volume = 1.0;
       
       utterance.onstart = () => {
@@ -137,8 +152,6 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
       utterance.onend = () => {
         setIsSpeaking(false);
         setIsProcessing(false);
-        // Remove this line to prevent modal from closing
-        // onCommand(text);
       };
 
       window.speechSynthesis.speak(utterance);
@@ -360,24 +373,24 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                 {/* Quick Test Buttons */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => testConversation("Hello ! how are you?")}
+                    onClick={() => testConversation("Hello ")}
                     className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-white text-sm transition-colors"
                   >
                     Test: Hello
                   </button>
                   
                   <button
-                    onClick={() => testConversation("Who are you ")}
+                    onClick={() => testConversation("what the hell")}
                     className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-white text-sm transition-colors"
                   >
-                    Test: who are you 
+                    Test: what the hell
                   </button>
                   
                   <button
-                    onClick={() => testConversation("what is pizza")}
+                    onClick={() => testConversation("can you read my mind")}
                     className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-white text-sm transition-colors"
                   >
-                    Test: what is pizza
+                    Test: can you read my mind 
                   </button>
                 </div>
                 <button
