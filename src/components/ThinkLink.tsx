@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThinkLinkNLP, Task } from './ThinkLink_model';
 import { MazsAI } from './MazsAI';
@@ -14,9 +14,22 @@ import {
   FiChevronUp,
   FiSearch,
   FiLogOut,
+  FiChevronRight,
+  FiChevronLeft,
+  FiCheckSquare,
+  FiClock,
+  FiCalendar,
+  FiBarChart2,
+  FiPlay,
+  FiPause,
+  FiSquare,
 } from 'react-icons/fi';
 import classNames from 'classnames';
 import { AuthContext } from '../context/AuthContext';
+import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { enUS } from 'date-fns/locale/en-US';
 
 interface CommandResult {
   action: 'create' | 'list' | 'delete' | 'update' | 'complete' | 'chat' | string;
@@ -33,6 +46,30 @@ interface TutorialStep {
   example: string;
 }
 
+// Add new interfaces
+interface PomodoroSettings {
+  workDuration: number;
+  shortBreakDuration: number;
+  longBreakDuration: number;
+  sessionsBeforeLongBreak: number;
+}
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  taskId?: string;
+}
+
+// Add new interface for sidebar apps
+interface SidebarApp {
+  id: string;
+  name: string;
+  icon: JSX.Element;
+  component: () => JSX.Element;
+}
+
 const ThinkLink: React.FC = () => {
   const { logout } = useContext(AuthContext);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -42,13 +79,13 @@ const ThinkLink: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const nlpModel = useRef(new ThinkLinkNLP());
   const aiModel = useRef(new MazsAI());
-  
+
   // State for canvas
   const [canvasVisible, setCanvasVisible] = useState(false);
 
   // Filter State
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
-  
+
   // Add new state for tutorials
   const [showTutorial, setShowTutorial] = useState(true);
   const [currentTutorialStep, setCurrentTutorialStep] = useState(0);
@@ -63,6 +100,166 @@ const ThinkLink: React.FC = () => {
   const [isPomodoroRunning, setIsPomodoroRunning] = useState(false);
   const [pomodoroTimeLeft, setPomodoroTimeLeft] = useState(1500); // 25 minutes in seconds
   const pomodoroIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Add new state for enhanced Pomodoro
+  const [pomodoroSettings] = useState<PomodoroSettings>({
+    workDuration: 1500, // 25 minutes
+    shortBreakDuration: 300, // 5 minutes
+    longBreakDuration: 900, // 15 minutes
+    sessionsBeforeLongBreak: 4
+  });
+  const [pomodoroSessionCount, setPomodoroSessionCount] = useState(0);
+  const [pomodoroMode, setPomodoroMode] = useState<'work' | 'shortBreak' | 'longBreak'>('work');
+  const [showPomodoroStats, setShowPomodoroStats] = useState(false);
+  const [pomodoroHistory, setPomodoroHistory] = useState<Array<{
+    date: Date;
+    duration: number;
+    type: 'work' | 'shortBreak' | 'longBreak';
+  }>>([]);
+
+  // Add calendar state
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  // Calendar localizer setup
+  const locales = { 'en-US': enUS };
+  const localizer = dateFnsLocalizer({
+    format,
+    parse,
+    startOfWeek,
+    getDay,
+    locales,
+  });
+
+  // Enhanced Pomodoro functions
+  const handlePomodoroComplete = useCallback(() => {
+    // Record session in history
+    setPomodoroHistory(prev => [...prev, {
+      date: new Date(),
+      duration: pomodoroSettings.workDuration,
+      type: pomodoroMode
+    }]);
+
+    // Update session count and determine next mode
+    if (pomodoroMode === 'work') {
+      const newSessionCount = pomodoroSessionCount + 1;
+      setPomodoroSessionCount(newSessionCount);
+      
+      if (newSessionCount % pomodoroSettings.sessionsBeforeLongBreak === 0) {
+        setPomodoroMode('longBreak');
+        setPomodoroTimeLeft(pomodoroSettings.longBreakDuration);
+      } else {
+        setPomodoroMode('shortBreak');
+        setPomodoroTimeLeft(pomodoroSettings.shortBreakDuration);
+      }
+    } else {
+      setPomodoroMode('work');
+      setPomodoroTimeLeft(pomodoroSettings.workDuration);
+    }
+
+    // Show notification
+    if (Notification.permission === 'granted') {
+      new Notification(`${pomodoroMode === 'work' ? 'Break' : 'Work'} time!`, {
+        body: `Time to ${pomodoroMode === 'work' ? 'take a break' : 'focus'}!`,
+        icon: '/path-to-your-icon.png'
+      });
+    }
+  }, [pomodoroMode, pomodoroSessionCount, pomodoroSettings]);
+
+  // Calendar functions
+  const handleAddTaskToCalendar = (taskId: string, start: Date, end: Date) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      const newEvent: CalendarEvent = {
+        id: `event-${Date.now()}`,
+        title: task.content,
+        start,
+        end,
+        taskId
+      };
+      setCalendarEvents(prev => [...prev, newEvent]);
+    }
+  };
+
+  // Render calendar view
+  const renderCalendar = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 md:p-4 z-50"
+    >
+      <div className="bg-black border border-white rounded-lg p-6 w-full max-w-4xl h-[90vh] md:h-[80vh] overflow-auto flex flex-col">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Task Calendar</h2>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => {
+                const selectedTask = tasks[0]; // Replace with actual task selection
+                if (selectedTask) {
+                  handleAddTaskToCalendar(
+                    selectedTask.id,
+                    new Date(),
+                    new Date(Date.now() + 3600000)
+                  );
+                }
+              }}
+              className="px-4 py-2 rounded-md bg-white text-black text-sm flex items-center space-x-1"
+            >
+              <FiPlus size={16} />
+              <span>Add Event</span>
+            </button>
+            <button onClick={() => setShowCalendar(false)} className="text-white hover:text-gray-300">
+              <FiX size={24} />
+            </button>
+          </div>
+        </div>
+        <Calendar
+          localizer={localizer}
+          events={calendarEvents}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: 'calc(80vh - 100px)' }}
+          className="bg-black text-white border border-gray-700"
+        />
+      </div>
+    </motion.div>
+  );
+
+  // Render Pomodoro statistics
+  const renderPomodoroStats = () => (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="fixed top-20 right-6 bg-gray-800 p-6 rounded-lg shadow-lg sm:w-80 w-72 z-50"
+    >
+      <h3 className="text-lg font-semibold mb-4">Pomodoro Statistics</h3>
+      <div className="space-y-3">
+        <div className="flex justify-between">
+          <span>Total Sessions:</span>
+          <span>{pomodoroHistory.length}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Work Sessions:</span>
+          <span>{pomodoroHistory.filter(h => h.type === 'work').length}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Total Focus Time:</span>
+          <span>{Math.round(
+            pomodoroHistory.reduce((acc, curr) => 
+              curr.type === 'work' ? acc + curr.duration : acc, 0) / 60
+          )} minutes</span>
+        </div>
+      </div>
+      <button
+        onClick={() => setShowPomodoroStats(false)}
+        className="mt-6 text-white underline text-sm flex items-center"
+      >
+        <FiX size={16} className="mr-1"/> Close
+      </button>
+    </motion.div>
+  );
 
   // Add tutorial content
   const tutorials: TutorialStep[] = [
@@ -111,7 +308,6 @@ const ThinkLink: React.FC = () => {
       description: "Use shortcuts for common actions:\n- 'show' or 'list' to view tasks\n- 'done' or 'complete' to mark as finished\n- 'del' or 'remove' to delete",
       example: "show high priority tasks"
     },
-
   ];
   
   // Memoize filteredTasks to optimize performance and satisfy ESLint
@@ -338,35 +534,32 @@ const ThinkLink: React.FC = () => {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           className={classNames(
-            "absolute bottom-24 left-6 w-96 backdrop-blur-sm rounded-lg shadow-xl p-6 z-50 bg-black border border-white text-white"
+            "fixed bottom-24 left-2 md:left-6 w-[calc(100%-1rem)] md:w-96 backdrop-blur-sm rounded-lg shadow-xl p-6 z-50 bg-black border border-white text-white"
           )}
         >
-          <div className="flex justify-between items-center mb-4">
-            <h3 className={`font-semibold`}>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-semibold text-xl">
               Tutorial ({currentTutorialStep + 1}/{tutorials.length})
             </h3>
             <button
               onClick={() => setShowTutorial(false)}
-              className={`hover:text-white`}
+              className="hover:text-white"
+              aria-label="Close Tutorial"
             >
-              <FiX size={20} />
+              <FiX size={24} />
             </button>
           </div>
-          <div className="space-y-4">
-            <h4 className={`font-medium`}>
-              {tutorials[currentTutorialStep].title}
-            </h4>
-            <p className={`text-white`}>
-              {tutorials[currentTutorialStep].description}
-            </p>
-            <div className={classNames(
-              "p-3 rounded-md backdrop-blur-sm",
-              {
-                "bg-black text-goldenHour": true,
-                "bg-black text-goldenHour border border-white": true
-              }
-            )}>
-              <code>
+          <div className="space-y-6">
+            <div>
+              <h4 className="font-medium text-lg mb-2">
+                {tutorials[currentTutorialStep].title}
+              </h4>
+              <p className="whitespace-pre-line">
+                {tutorials[currentTutorialStep].description}
+              </p>
+            </div>
+            <div className="p-4 rounded-md backdrop-blur-sm bg-black text-goldenHour border border-white">
+              <code className="whitespace-pre-wrap">
                 {tutorials[currentTutorialStep].example}
               </code>
             </div>
@@ -374,22 +567,22 @@ const ThinkLink: React.FC = () => {
               <button
                 onClick={() => currentTutorialStep > 0 && setCurrentTutorialStep(prev => prev - 1)}
                 className={classNames(
-                  "px-4 py-2 rounded-md transition-colors",
+                  "px-4 py-2 rounded-md transition-colors flex items-center space-x-2",
                   {
-                    "bg-black hover:bg-black text-white border hover:border-white": currentTutorialStep > 0,
-                    "bg-black hover:bg-black text-white hover:border-white ": currentTutorialStep > 0,
+                    "bg-black text-white border border-white hover:bg-gray-800": currentTutorialStep > 0,
                     "opacity-50 cursor-not-allowed": currentTutorialStep === 0
                   }
                 )}
                 disabled={currentTutorialStep === 0}
               >
-                Previous
+                <FiChevronLeft /> <span>Previous</span>
               </button>
               <button
                 onClick={nextTutorialStep}
-                className="px-4 py-2 bg-black text-white rounded-md border hover:border-white transition-colors"
+                className="px-4 py-2 bg-black text-white rounded-md border border-white hover:bg-gray-800 transition-colors flex items-center space-x-2"
               >
-                {currentTutorialStep < tutorials.length - 1 ? 'Next' : 'Got it!'}
+                <span>{currentTutorialStep < tutorials.length - 1 ? 'Next' : 'Got it!'}</span>
+                {currentTutorialStep < tutorials.length - 1 ? <FiChevronRight /> : null}
               </button>
             </div>
           </div>
@@ -402,10 +595,9 @@ const ThinkLink: React.FC = () => {
   const renderTutorialButton = () => (
     <button
       onClick={() => setShowTutorial(true)}
-      className={classNames(
-        "absolute bottom-24 left-6 text-black bg-white p-3 rounded-full shadow-lg focus:outline-none hover:opacity-80 z-50"
-      )}
+      className="absolute bottom-24 left-6 text-black bg-white p-3 rounded-full shadow-lg focus:outline-none hover:opacity-80 z-50 md:hidden flex items-center justify-center"
       title="Show Tutorial"
+      aria-label="Show Tutorial"
     >
       <FiMenu size={20} />
     </button>
@@ -513,18 +705,571 @@ const ThinkLink: React.FC = () => {
 
   useEffect(() => {
     if (pomodoroTimeLeft === 0 && isPomodoroRunning) {
-      alert('Pomodoro session completed! Time for a break.');
-      setIsPomodoroRunning(false);
+      handlePomodoroComplete();
     }
-  }, [pomodoroTimeLeft, isPomodoroRunning]);
+  }, [pomodoroTimeLeft, isPomodoroRunning, handlePomodoroComplete]);
+
+  // Use useEffect for initial Pomodoro setup if needed
+  useEffect(() => {
+    // Any initial Pomodoro setup can go here
+  }, []); // Empty dependency array means this runs once on mount
+
+  // Add new state for active app
+  const [activeApp, setActiveApp] = useState<string>('tasks');
+
+  // Define sidebar apps
+  const sidebarApps: SidebarApp[] = [
+    {
+      id: 'tasks',
+      name: 'Tasks',
+      icon: <FiCheckSquare size={20} />,
+      component: () => (
+        <div className="h-full overflow-y-auto">
+          {/* Search Bar */}
+          <div className="mb-6 flex items-center bg-gray-800 rounded-md p-3">
+            <FiSearch className="text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="ml-3 bg-transparent outline-none text-sm text-white flex-1"
+              placeholder="Search tasks..."
+              aria-label="Search Tasks"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-white">
+                <FiX size={18} />
+              </button>
+            )}
+          </div>
+
+          {/* Filters and Statistics */}
+          <div className="mb-8">
+            <h3 className="font-medium mb-4 flex items-center">
+              <FiFilter className="mr-2" /> Filters
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              <button 
+                onClick={() => setFilter('all')}
+                className={`px-4 py-2 rounded-full border border-white ${
+                  filter === 'all' ? 'bg-white text-black' : 'text-white hover:bg-white hover:text-black'
+                } transition-colors`}
+              >
+                All
+              </button>
+              {/* ... other filter buttons ... */}
+            </div>
+          </div>
+
+          {/* Task List */}
+          {Object.entries(groupedTasks).map(([category, categoryTasks]) => (
+            <div key={category} className="mb-8">
+              <div className="flex justify-between items-center mb-4 px-2">
+                <h3 className="text-xl font-medium text-goldenHour capitalize">{category}</h3>
+                <button onClick={() => toggleCategory(category)}>
+                  {collapsedCategories[category] ? <FiChevronDown size={20} /> : <FiChevronUp size={20} />}
+                </button>
+              </div>
+              <AnimatePresence>
+                {!collapsedCategories[category] && (
+                  <motion.ul
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-6 px-4"
+                  >
+                    {categoryTasks.map(task => (
+                      <li key={task.id} className="flex items-start space-x-4">
+                        <div className="mt-1">
+                          {task.priority === 'high' && <FiCheck className="text-red-500" />}
+                          {task.priority === 'medium' && <FiEdit2 className="text-yellow-500" />}
+                          {task.priority === 'low' && <FiTrash2 className="text-green-500" />}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-white font-semibold">{task.content}</span>
+                            <span className="text-gray-400 text-xs">{task.status === 'done' ? '✅ Completed' : '🕒 Pending'}</span>
+                          </div>
+                          {task.due && (
+                            <div className="text-gray-300 text-sm">
+                              📅 Due: {new Date(task.due).toLocaleDateString()}
+                            </div>
+                          )}
+                          {task.context && (
+                            <div className="text-gray-500 text-xs mt-1">
+                              {task.context}
+                            </div>
+                          )}
+                          {/* Dependency Indicator */}
+                          {task.context?.includes('depends on') && (
+                            <div className="text-blue-400 text-xs mt-1">
+                              Depends on Task ID: {task.context.split(': ')[1]}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col space-y-3">
+                          <button
+                            onClick={() => handleEditTask(task.id)}
+                            className="text-blue-400 hover:text-blue-300"
+                            title="Edit Task"
+                            aria-label="Edit Task"
+                          >
+                            <FiEdit2 size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTask(task.id)}
+                            className="text-red-400 hover:text-red-300"
+                            title="Delete Task"
+                            aria-label="Delete Task"
+                          >
+                            <FiTrash2 size={18} />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </motion.ul>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+
+          {/* Training Statistics */}
+          <div className="mt-8 px-2">
+            <h3 className="font-medium mb-4">Training Statistics</h3>
+            <div className="flex justify-between mb-3">
+              <span>Samples Count:</span>
+              <span>{nlpModel.current.getTrainingStats().samplesCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Average Accuracy:</span>
+              <span>
+                {(nlpModel.current.getTrainingStats().averageAccuracy * 100).toFixed(2)}%
+              </span>
+            </div>
+          </div>
+
+          {/* Task Dependencies */}
+          <div className="mt-8 px-2">
+            <h3 className="font-medium mb-4">Task Dependencies</h3>
+            <div className="bg-black p-5 rounded-lg">
+              {tasks.some(task => task.context?.includes('depends on')) ? (
+                <ul className="list-disc list-inside text-gray-300">
+                  {tasks
+                    .filter(task => task.context?.includes('depends on'))
+                    .map(task => (
+                      <li key={task.id}>
+                        <span className="text-white">{task.content}</span> depends on Task ID{' '}
+                        <span className="text-yellow-400">
+                          {task.context?.split(': ')[1] || 'Unknown'}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              ) : (
+                <div className="text-gray-400">No dependencies found.</div>
+              )}
+            </div>
+          </div>
+
+          {/* AI Assistant Statistics */}
+          {renderAIStats()}
+        </div>
+      )
+    },
+    {
+      id: 'pomodoro',
+      name: 'Pomodoro',
+      icon: <FiClock size={20} />,
+      component: () => (
+        <div className="h-full p-6 flex flex-col items-center justify-center">
+          <div className="text-6xl font-mono mb-8">
+            {Math.floor(pomodoroTimeLeft / 60)
+              .toString()
+              .padStart(2, '0')}
+            :
+            {(pomodoroTimeLeft % 60).toString().padStart(2, '0')}
+          </div>
+          <div className="flex flex-col space-y-4 w-full max-w-xs">
+            {!isPomodoroRunning && pomodoroTimeLeft > 0 && (
+              <button 
+                onClick={() => handlePomodoroAction('resume')}
+                className="w-full px-6 py-3 bg-green-500 rounded-lg hover:bg-green-600 text-white transition-colors"
+              >
+                Resume
+              </button>
+            )}
+            {isPomodoroRunning ? (
+              <button 
+                onClick={() => handlePomodoroAction('pause')}
+                className="w-full px-6 py-3 bg-yellow-500 rounded-lg hover:bg-yellow-600 text-white transition-colors"
+              >
+                Pause
+              </button>
+            ) : (
+              <button 
+                onClick={() => handlePomodoroAction('start')}
+                className="w-full px-6 py-3 bg-blue-500 rounded-lg hover:bg-blue-600 text-white transition-colors"
+              >
+                Start
+              </button>
+            )}
+            <button 
+              onClick={() => handlePomodoroAction('stop')}
+              className="w-full px-6 py-3 bg-red-500 rounded-lg hover:bg-red-600 text-white transition-colors"
+            >
+              Stop
+            </button>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'calendar',
+      name: 'Calendar',
+      icon: <FiCalendar size={20} />,
+      component: () => (
+        <div className="h-full p-6">
+          <Calendar
+            localizer={localizer}
+            events={calendarEvents}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: 'calc(100% - 2rem)' }}
+            className="bg-black text-white border border-gray-700"
+          />
+        </div>
+      )
+    }
+  ];
+
+  // Replace the existing canvas sidebar with this new component
+  const renderSidebar = () => (
+    <motion.div
+      initial={{ x: '100%' }}
+      animate={{ x: 0 }}
+      exit={{ x: '100%' }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      className="fixed md:relative top-0 right-0 w-full md:w-[400px] lg:w-[600px] h-full bg-black border-l border-white flex flex-col"
+    >
+      {/* Enhanced Sidebar Header */}
+      <div className="p-4 border-b border-white">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-4">
+            {sidebarApps.map(app => (
+              <button
+                key={app.id}
+                onClick={() => setActiveApp(app.id)}
+                className={`p-3 rounded-lg flex items-center space-x-2 transition-all transform hover:scale-105 ${
+                  activeApp === app.id 
+                    ? 'bg-white text-black shadow-lg' 
+                    : 'text-white hover:bg-gray-800'
+                }`}
+              >
+                {app.icon}
+                <span className="hidden md:inline font-medium">{app.name}</span>
+              </button>
+            ))}
+          </div>
+          <button 
+            onClick={toggleCanvas}
+            className="text-white hover:text-gray-300 transition-transform hover:scale-110"
+          >
+            <FiX size={24} />
+          </button>
+        </div>
+
+        {/* Enhanced Search Bar */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <FiSearch className="text-gray-400" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-12 py-2 bg-gray-800 border border-gray-700 rounded-lg outline-none text-sm text-white transition-all focus:border-white"
+            placeholder="Search tasks, categories, or priorities..."
+            aria-label="Search"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white"
+            >
+              <FiX size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Enhanced App Content */}
+      <div className="flex-1 overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeApp}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="h-full"
+          >
+            {activeApp === 'tasks' && (
+              <div className="h-full overflow-y-auto px-4 py-6 space-y-8">
+                {/* Enhanced Task Categories */}
+                {Object.entries(groupedTasks).map(([category, categoryTasks]) => (
+                  <motion.div
+                    key={category}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="group"
+                  >
+                    <div 
+                      className="flex justify-between items-center mb-4 px-2 cursor-pointer"
+                      onClick={() => toggleCategory(category)}
+                    >
+                      <h3 className="text-xl font-medium text-goldenHour capitalize flex items-center space-x-2">
+                        <span>{category}</span>
+                        <span className="text-sm text-gray-400">({categoryTasks.length})</span>
+                      </h3>
+                      <motion.button
+                        animate={{ rotate: collapsedCategories[category] ? 0 : 180 }}
+                        transition={{ duration: 0.2 }}
+                        className="opacity-60 group-hover:opacity-100"
+                      >
+                        <FiChevronDown size={20} />
+                      </motion.button>
+                    </div>
+
+                    <AnimatePresence>
+                      {!collapsedCategories[category] && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <div className="space-y-4">
+                            {categoryTasks.map(task => (
+                              <motion.div
+                                key={task.id}
+                                layoutId={task.id}
+                                className="p-4 border border-gray-800 rounded-lg hover:border-gray-700 transition-all group"
+                              >
+                                <div className="flex items-start space-x-4">
+                                  <div className="mt-1">
+                                    {task.priority === 'high' && (
+                                      <motion.div
+                                        whileHover={{ scale: 1.1 }}
+                                        className="text-red-500"
+                                      >
+                                        <FiCheck size={20} />
+                                      </motion.div>
+                                    )}
+                                    {/* ... other priority icons ... */}
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between">
+                                      <h4 className="text-white font-medium truncate pr-4">
+                                        {task.content}
+                                      </h4>
+                                      <span className="text-xs text-gray-400 whitespace-nowrap">
+                                        {task.status === 'done' ? '✅' : '🕒'}
+                                      </span>
+                                    </div>
+
+                                    {task.due && (
+                                      <div className="mt-2 text-sm text-gray-300 flex items-center">
+                                        <FiCalendar className="mr-2" size={14} />
+                                        {new Date(task.due).toLocaleDateString()}
+                                      </div>
+                                    )}
+
+                                    {task.context && (
+                                      <p className="mt-2 text-sm text-gray-500">
+                                        {task.context}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <motion.button
+                                      whileHover={{ scale: 1.1 }}
+                                      onClick={() => handleEditTask(task.id)}
+                                      className="p-1 text-blue-400 hover:text-blue-300"
+                                    >
+                                      <FiEdit2 size={16} />
+                                    </motion.button>
+                                    <motion.button
+                                      whileHover={{ scale: 1.1 }}
+                                      onClick={() => handleDeleteTask(task.id)}
+                                      className="p-1 text-red-400 hover:text-red-300"
+                                    >
+                                      <FiTrash2 size={16} />
+                                    </motion.button>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ))}
+
+                {/* Enhanced Statistics Section */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-8 p-4 border border-gray-800 rounded-lg"
+                >
+                  <h3 className="font-medium mb-4">Statistics</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-gray-800 rounded-lg">
+                      <div className="text-sm text-gray-400">Total Tasks</div>
+                      <div className="text-2xl font-medium">{tasks.length}</div>
+                    </div>
+                    <div className="p-3 bg-gray-800 rounded-lg">
+                      <div className="text-sm text-gray-400">Completed</div>
+                      <div className="text-2xl font-medium">
+                        {tasks.filter(t => t.status === 'done').length}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+            
+            {activeApp === 'pomodoro' && (
+              <div className="h-full p-6 flex flex-col items-center justify-center">
+                {/* Enhanced Pomodoro Timer */}
+                <motion.div
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  className="w-full max-w-md"
+                >
+                  {/* Timer Display */}
+                  <motion.div 
+                    className="text-center mb-12"
+                    animate={{ scale: isPomodoroRunning ? [1, 1.02, 1] : 1 }}
+                    transition={{ repeat: isPomodoroRunning ? Infinity : 0, duration: 2 }}
+                  >
+                    <div className="text-7xl font-mono mb-4 tracking-wider">
+                      {Math.floor(pomodoroTimeLeft / 60)
+                        .toString()
+                        .padStart(2, '0')}
+                      <span className="animate-pulse">:</span>
+                      {(pomodoroTimeLeft % 60).toString().padStart(2, '0')}
+                    </div>
+                    <div className="text-gray-400 text-lg capitalize">
+                      {pomodoroMode} Mode
+                    </div>
+                  </motion.div>
+
+                  {/* Control Buttons */}
+                  <div className="space-y-4 w-full max-w-xs mx-auto">
+                    {!isPomodoroRunning && pomodoroTimeLeft > 0 && (
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handlePomodoroAction('resume')}
+                        className="w-full px-6 py-4 bg-green-500 rounded-lg hover:bg-green-600 text-white transition-colors flex items-center justify-center space-x-2"
+                      >
+                        <FiPlay size={20} />
+                        <span>Resume</span>
+                      </motion.button>
+                    )}
+                    {isPomodoroRunning ? (
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handlePomodoroAction('pause')}
+                        className="w-full px-6 py-4 bg-yellow-500 rounded-lg hover:bg-yellow-600 text-white transition-colors flex items-center justify-center space-x-2"
+                      >
+                        <FiPause size={20} />
+                        <span>Pause</span>
+                      </motion.button>
+                    ) : (
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handlePomodoroAction('start')}
+                        className="w-full px-6 py-4 bg-blue-500 rounded-lg hover:bg-blue-600 text-white transition-colors flex items-center justify-center space-x-2"
+                      >
+                        <FiPlay size={20} />
+                        <span>Start</span>
+                      </motion.button>
+                    )}
+                    <motion.button 
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handlePomodoroAction('stop')}
+                      className="w-full px-6 py-4 bg-red-500 rounded-lg hover:bg-red-600 text-white transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <FiSquare size={20} />
+                      <span>Stop</span>
+                    </motion.button>
+                  </div>
+
+                  {/* Session Progress */}
+                  <div className="mt-12 text-center">
+                    <div className="text-gray-400 mb-2">Session Progress</div>
+                    <div className="flex items-center justify-center space-x-2">
+                      {Array.from({ length: pomodoroSettings.sessionsBeforeLongBreak }).map((_, index) => (
+                        <motion.div
+                          key={index}
+                          className={`w-3 h-3 rounded-full ${
+                            index < pomodoroSessionCount ? 'bg-white' : 'bg-gray-700'
+                          }`}
+                          initial={false}
+                          animate={{ scale: index < pomodoroSessionCount ? 1.2 : 1 }}
+                          transition={{ duration: 0.2 }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Statistics Button */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    onClick={() => setShowPomodoroStats(true)}
+                    className="mt-8 px-4 py-2 border border-white rounded-lg text-sm hover:bg-white hover:text-black transition-colors mx-auto flex items-center space-x-2"
+                  >
+                    <FiBarChart2 size={16} />
+                    <span>Pomodoro Statistics</span>
+                  </motion.button>
+                </motion.div>
+              </div>
+            )}
+            
+            {activeApp === 'calendar' && (
+              <div className="h-full p-6">
+                <Calendar
+                  localizer={localizer}
+                  events={calendarEvents}
+                  startAccessor="start"
+                  endAccessor="end"
+                  style={{ height: 'calc(100% - 2rem)' }}
+                  className="bg-black text-white border border-gray-700"
+                />
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
 
   return (
-    <div className="h-screen w-full p-6 flex transition-colors duration-500 overflow-hidden bg-black text-white">
+    <div className="h-screen w-full p-4 md:p-6 flex flex-col md:flex-row transition-colors duration-500 overflow-hidden bg-black text-white">
+      {/* Terminal Section */}
       <motion.div
         variants={terminalVariants}
         animate={canvasVisible ? 'expanded' : 'collapsed'}
         initial="collapsed"
-        className="h-[calc(100vh-3rem)] backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col flex-1 bg-black border border-white"
+        className="flex-1 h-full backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col bg-black border border-white"
       >
         {/* Terminal Header */}
         <div className="px-6 py-3 flex items-center justify-between border-b border-white">
@@ -534,16 +1279,19 @@ const ThinkLink: React.FC = () => {
                 whileHover={{ scale: 1.1 }}
                 transition={expandTransition}
                 className="w-3 h-3 rounded-full bg-red-500 cursor-pointer"
+                aria-label="Close"
               />
               <motion.div 
                 whileHover={{ scale: 1.1 }}
                 transition={expandTransition}
                 className="w-3 h-3 rounded-full bg-yellow-500 cursor-pointer"
+                aria-label="Minimize"
               />
               <motion.div 
                 whileHover={{ scale: 1.1 }}
                 transition={expandTransition}
                 className="w-3 h-3 rounded-full bg-green-500 cursor-pointer"
+                aria-label="Maximize"
               />
             </div>
             <div className="text-white text-sm font-medium tracking-wide">ThinkLink Terminal</div>
@@ -554,18 +1302,21 @@ const ThinkLink: React.FC = () => {
               transition={expandTransition}
               className="text-white hover:opacity-80"
               title="Minimize"
+              aria-label="Minimize"
             >−</motion.button>
             <motion.button 
               whileHover={{ scale: 1.1 }}
               transition={expandTransition}
               className="text-white hover:opacity-80"
               title="Maximize"
+              aria-label="Maximize"
             >□</motion.button>
             <motion.button 
               whileHover={{ scale: 1.1 }}
               transition={expandTransition}
               className="text-white hover:opacity-80" 
               title="Close"
+              aria-label="Logout"
               onClick={handleLogout}
             >
               <FiLogOut size={20} />
@@ -621,16 +1372,16 @@ const ThinkLink: React.FC = () => {
             transition={expandTransition}
             className="flex items-center group"
           >
-            <span className="text-emerald-400">➜</span>
-            <span className="ml-1 text-blue-400">~/thinklink</span>
-            <span className="ml-1 text-white">$</span>
+            <span className="text-emerald-400 hidden md:inline">➜</span>
+            <span className="ml-1 text-blue-400 hidden md:inline">~/thinklink</span>
+            <span className="ml-1 text-white hidden md:inline">$</span>
             <input
               type="text"
               value={currentCommand}
               onChange={(e) => setCurrentCommand(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="flex-1 ml-2 bg-transparent outline-none caret-emerald-400 font-mono text-white"
-              placeholder="use Natural Language to give commands "
+              className="flex-1 ml-0 md:ml-2 bg-transparent outline-none caret-emerald-400 font-mono text-white text-sm md:text-base"
+              placeholder="Enter command..."
               autoFocus
               spellCheck={false}
             />
@@ -638,6 +1389,7 @@ const ThinkLink: React.FC = () => {
               onClick={handleCommandSubmit} 
               className="ml-2 text-green-500 hover:opacity-80" 
               title="Submit Command"
+              aria-label="Submit Command"
             >
               <FiPlus size={18} />
             </button>
@@ -645,257 +1397,30 @@ const ThinkLink: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Canvas Sidebar */}
-      <AnimatePresence mode="wait">
-        {canvasVisible && (
-          <motion.div
-            initial={{ x: 800 }}
-            animate={{ x: 0 }}
-            exit={{ x: 800, transition: { duration: 0 } }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="w-full md:w-[400px] lg:w-[600px] h-full backdrop-blur-xl rounded-2xl shadow-2xl p-6 overflow-y-auto flex flex-col bg-black border border-white"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-white">ThinkLink Canvas</h2>
-              <button 
-                onClick={toggleCanvas} 
-                className="text-white hover:opacity-80" 
-                title="Close Canvas"
-              >
-                <FiX size={20} />
-              </button>
-            </div>
-            {/* Search Bar */}
-            <div className="mb-4 flex items-center bg-gray-800 rounded-md p-2">
-              <FiSearch className="text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="ml-2 bg-transparent outline-none text-sm text-white flex-1"
-                placeholder="Search tasks..."
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')}>
-                  <FiX className="text-gray-400" />
-                </button>
-              )}
-            </div>
-            {/* Filters and Statistics */}
-            <div className="mb-4">
-              <h3 className="font-medium mb-2 flex items-center">
-                <FiFilter className="mr-2" /> Filters
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                <button 
-                  onClick={() => setFilter('all')}
-                  className={`px-3 py-1 rounded-full border border-white ${
-                    filter === 'all' ? 'bg-white text-black' : 'text-white hover:bg-white hover:text-black'
-                  }`}
-                >
-                  All
-                </button>
-                <button 
-                  onClick={() => setFilter('high')}
-                  className={`px-3 py-1 rounded-full border border-white flex items-center ${
-                    filter === 'high' ? 'bg-white text-black' : 'text-white hover:bg-white hover:text-black'
-                  }`}
-                >
-                  <FiCheck className="inline mr-1" /> High Priority
-                </button>
-                <button 
-                  onClick={() => setFilter('medium')}
-                  className={`px-3 py-1 rounded-full border border-white flex items-center ${
-                    filter === 'medium' ? 'bg-white text-black' : 'text-white hover:bg-white hover:text-black'
-                  }`}
-                >
-                  <FiEdit2 className="inline mr-1" /> Medium Priority
-                </button>
-                <button 
-                  onClick={() => setFilter('low')}
-                  className={`px-3 py-1 rounded-full border border-white flex items-center ${
-                    filter === 'low' ? 'bg-white text-black' : 'text-white hover:bg-white hover:text-black'
-                  }`}
-                >
-                  <FiTrash2 className="inline mr-1" /> Low Priority
-                </button>
-              </div>
-            </div>
-            {/* Task List */}
-            <div className="flex-1 overflow-y-auto">
-              {Object.keys(groupedTasks).length > 0 ? (
-                Object.entries(groupedTasks).map(([category, categoryTasks]) => (
-                  <div key={category} className="mb-6">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-xl font-medium text-goldenHour capitalize">{category}</h3>
-                      <button onClick={() => toggleCategory(category)}>
-                        {collapsedCategories[category] ? <FiChevronDown /> : <FiChevronUp />}
-                      </button>
-                    </div>
-                    <AnimatePresence>
-                      {!collapsedCategories[category] && (
-                        <motion.ul
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="space-y-4"
-                        >
-                          {categoryTasks.map(task => (
-                            <li key={task.id} className="flex items-start space-x-4">
-                              <div className="mt-1">
-                                {task.priority === 'high' && <FiCheck className="text-red-500" />}
-                                {task.priority === 'medium' && <FiEdit2 className="text-yellow-500" />}
-                                {task.priority === 'low' && <FiTrash2 className="text-green-500" />}
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-white font-semibold">{task.content}</span>
-                                  <span className="text-gray-400 text-xs">{task.status === 'done' ? '✅ Completed' : '🕒 Pending'}</span>
-                                </div>
-                                {task.due && (
-                                  <div className="text-gray-300 text-sm">
-                                    📅 Due: {new Date(task.due).toLocaleDateString()}
-                                  </div>
-                                )}
-                                {task.context && (
-                                  <div className="text-gray-500 text-xs mt-1">
-                                    {task.context}
-                                  </div>
-                                )}
-                                {/* Dependency Indicator */}
-                                {task.context?.includes('depends on') && (
-                                  <div className="text-blue-400 text-xs mt-1">
-                                    Depends on Task ID: {task.context.split(': ')[1]}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex flex-col space-y-2">
-                                <button
-                                  onClick={() => handleEditTask(task.id)}
-                                  className="text-blue-400 hover:opacity-80"
-                                  title="Edit Task"
-                                >
-                                  <FiEdit2 />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteTask(task.id)}
-                                  className="text-red-400 hover:opacity-80"
-                                  title="Delete Task"
-                                >
-                                  <FiTrash2 />
-                                </button>
-                              </div>
-                            </li>
-                          ))}
-                        </motion.ul>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                ))
-              ) : (
-                <div className="text-gray-400">No tasks available. Start adding some!</div>
-              )}
-            </div>
-            {/* Training Statistics */}
-            <div className="mt-6">
-              <h3 className="font-medium mb-2">Training Statistics</h3>
-              <div className="flex justify-between mb-2">
-                <span>Samples Count:</span>
-                <span>{nlpModel.current.getTrainingStats().samplesCount}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span>Average Accuracy:</span>
-                <span>
-                  {(nlpModel.current.getTrainingStats().averageAccuracy * 100).toFixed(2)}%
-                </span>
-              </div>
-            </div>
-            {/* Task Dependencies */}
-            <div className="mt-6">
-              <h3 className="font-medium mb-2">Task Dependencies</h3>
-              <div className="bg-black p-4 rounded-lg">
-                {tasks.some(task => task.context?.includes('depends on')) ? (
-                  <ul className="list-disc list-inside text-gray-300">
-                    {tasks
-                      .filter(task => task.context?.includes('depends on'))
-                      .map(task => (
-                        <li key={task.id}>
-                          <span className="text-white">{task.content}</span> depends on Task ID{' '}
-                          <span className="text-yellow-400">
-                            {task.context?.split(': ')[1] || 'Unknown'}
-                          </span>
-                        </li>
-                      ))}
-                  </ul>
-                ) : (
-                  <div className="text-gray-400">No dependencies found.</div>
-                )}
-              </div>
-            </div>
-            {/* AI Assistant Statistics */}
-            {renderAIStats()}
-          </motion.div>
-        )}
+      {/* Sidebar */}
+      <AnimatePresence>
+        {canvasVisible && renderSidebar()}
       </AnimatePresence>
 
-      {/* Toggle Button */}
+      {/* Toggle Sidebar Button */}
       <button
         onClick={toggleCanvas}
-        className="fixed bottom-6 right-6 text-black bg-white p-3 rounded-full shadow-lg focus:outline-none hover:opacity-80 z-50"
-        title={canvasVisible ? 'Hide Canvas' : 'Show Canvas'}
+        className="fixed bottom-6 right-6 text-black bg-white p-4 rounded-full shadow-lg focus:outline-none hover:opacity-80 transition-opacity z-50"
+        title={canvasVisible ? 'Hide Sidebar' : 'Show Sidebar'}
+        aria-label={canvasVisible ? 'Hide Sidebar' : 'Show Sidebar'}
       >
-        {canvasVisible ? <FiX size={20} /> : <FiMenu size={20} />}
+        {canvasVisible ? <FiX size={24} /> : <FiMenu size={24} />}
       </button>
-      
-      {/* Add tutorial components */}
+
+      {/* Tutorial components */}
       {renderTutorial()}
       {!showTutorial && renderTutorialButton()}
 
-      {/* Pomodoro Timer UI */}
-      {isPomodoroRunning || pomodoroTimeLeft < 1500 ? (
-        <div className="fixed top-6 right-6 bg-gray-800 p-4 rounded-lg shadow-lg">
-          <h3 className="text-lg font-semibold mb-2">Pomodoro Timer</h3>
-          <div className="text-2xl mb-4">
-            {Math.floor(pomodoroTimeLeft / 60)
-              .toString()
-              .padStart(2, '0')}
-            :
-            {(pomodoroTimeLeft % 60).toString().padStart(2, '0')}
-          </div>
-          <div className="flex space-x-2">
-            {!isPomodoroRunning && pomodoroTimeLeft > 0 && (
-              <button
-                onClick={() => handlePomodoroAction('resume')}
-                className="px-4 py-2 bg-green-500 rounded hover:bg-green-600"
-              >
-                Resume
-              </button>
-            )}
-            {isPomodoroRunning ? (
-              <button
-                onClick={() => handlePomodoroAction('pause')}
-                className="px-4 py-2 bg-yellow-500 rounded hover:bg-yellow-600"
-              >
-                Pause
-              </button>
-            ) : (
-              <button
-                onClick={() => handlePomodoroAction('start')}
-                className="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600"
-              >
-                Start
-              </button>
-            )}
-            <button
-              onClick={() => handlePomodoroAction('stop')}
-              className="px-4 py-2 bg-red-500 rounded hover:bg-red-600"
-            >
-              Stop
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {/* Add Pomodoro Stats to the UI */}
+      {showPomodoroStats && renderPomodoroStats()}
+
+      {/* Add Calendar Modal to the UI */}
+      {showCalendar && renderCalendar()}
     </div>
   );
 };
