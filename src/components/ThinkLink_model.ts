@@ -69,31 +69,33 @@ export class ThinkLinkNLP {
     ],
     timeIndicators: [
       'today', 'tomorrow', 'tonight', 'next week', 'next month',
-      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
+      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+      'hour', 'minute', 'second', 'morning', 'afternoon', 'evening'
     ],
     actions: [
       'create', 'add', 'new', 'delete', 'remove', 'update', 
       'show', 'list', 'complete', 'done', 'finish', 'edit',
-      'view', 'schedule', 'organize'
+      'view', 'schedule', 'organize', 'plan', 'set', 'mark'
     ],
-    contextual: ['for', 'by', 'at', 'on', 'in', 'with', 'to'],
+    contextual: ['for', 'by', 'at', 'on', 'in', 'with', 'to', 'from'],
     relationships: [
       'with', 'for', 'team', 'client', 'boss', 'colleague', 'partner',
-      'department', 'group', 'stakeholder', 'customer'
+      'department', 'group', 'stakeholder', 'customer', 'family', 'friend'
     ],
     locations: [
       'office', 'home', 'remote', 'online', 'virtual', 'room', 
-      'building', 'site', 'location'
+      'building', 'site', 'location', 'park', 'gym', 'restaurant',
+      'cafe', 'library'
     ],
     urgencyModifiers: [
       'before', 'after', 'deadline', 'due', 'must', 'should', 
-      'need to', 'required', 'mandatory'
+      'need to', 'required', 'mandatory', 'immediately', 'soon', 'quickly'
     ]
   };
 
   private sentimentWeights = {
-    positive: ['excited', 'happy', 'great', 'good', 'important'],
-    negative: ['worried', 'concerned', 'bad', 'difficult', 'hard']
+    positive: ['excited', 'happy', 'great', 'good', 'important', 'successful', 'achieve', 'satisfied', 'delighted', 'fantastic'],
+    negative: ['worried', 'concerned', 'bad', 'difficult', 'hard', 'stressful', 'frustrated', 'upset', 'disappointed', 'overwhelmed']
   };
 
   // Neural network weights
@@ -103,7 +105,7 @@ export class ThinkLinkNLP {
     type: new Map<string, number>()
   };
 
-  private learningRate = 0.1;
+  private learningRate = 0.05; // Adjusted for smoother training
   private trainingDataSet: TrainingData[] = trainingData;
   private modelKey = 'ThinkLinkNLPModel';
 
@@ -111,23 +113,25 @@ export class ThinkLinkNLP {
   private contextPatterns = {
     deadline: /by|before|due|until|deadline/i,
     dependency: /after|following|depends on|blocked by/i,
-    recurring: /every|daily|weekly|monthly|yearly/i,
-    duration: /for|during|takes|hours|minutes|days/i
+    recurring: /every|daily|weekly|monthly|yearly|recurring/i,
+    duration: /for|during|takes|hours|minutes|days|weeks|months|years/i
   };
 
-  // Add extended stopwords as a class property for better performance
+  // Enhanced stopwords for better performance
   private extendedStopwords: Set<string> = new Set([
     'the', 'is', 'in', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'for', 
     'to', 'of', 'with', 'please', 'help', 'me', 'add', 'create', 'task', 
     'called', 'new', 'assist', 'support', 'this', 'that', 'these', 'those',
     'i', 'we', 'they', 'he', 'she', 'it', 'you', 'my', 'our', 'their',
-    'am', 'are', 'was', 'were', 'be', 'been', 'being'
+    'am', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+    'will', 'would', 'should', 'could', 'must', 'can', 'may', 'might', 'need',
+    'must', 'shall'
   ]);
 
   private nlpPatterns = {
     // Enhanced sentence structures with more variations
-    subjectVerbObject: /\b(\w+)\s+(is|are|was|were|have|has|had|will|would|should|could|must)\s+(\w+)\b/i,
-    actionObject: /\b(create|update|review|prepare|develop|implement|fix|organize|schedule|plan|complete|finish)\s+([a-z\s]+)\b/i,
+    subjectVerbObject: /\b(\w+)\s+(is|are|was|were|have|has|had|will|would|should|could|must|can|may|might)\s+(\w+)\b/i,
+    actionObject: /\b(create|update|review|prepare|develop|implement|fix|organize|schedule|plan|complete|finish|set|mark|achieve)\s+([a-z\s]+)\b/i,
     timeExpression: /\b(today|tomorrow|next|this|coming|following|in|after|within|by)\s+(week|month|day|morning|afternoon|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday|hour|minute|second)s?\b/i,
     
     // Enhanced task-specific patterns
@@ -146,7 +150,7 @@ export class ThinkLinkNLP {
   };
 
   private verbGroups = {
-    creation: ['create', 'develop', 'prepare', 'make', 'build', 'design', 'establish'],
+    creation: ['create', 'develop', 'prepare', 'make', 'build', 'design', 'establish', 'set', 'mark', 'achieve'],
     modification: ['update', 'modify', 'change', 'revise', 'edit', 'adjust'],
     review: ['review', 'check', 'analyze', 'evaluate', 'assess', 'examine'],
     completion: ['complete', 'finish', 'deliver', 'submit', 'send'],
@@ -157,13 +161,13 @@ export class ThinkLinkNLP {
   constructor() {
     if (!this.loadModel()) {
       this.initializeWeights();
-      this.trainModelWithDataset(200); // Increased epochs for better training
+      this.trainModelWithDataset(300); // Increased epochs for better training
       this.saveModel();
     }
   }
 
   private initializeWeights(): void {
-    // Initialize weights for all known words
+    // Initialize weights for all known words with a focus on diversity
     const allWords = new Set([
       ...this.keywords.priority.high,
       ...this.keywords.priority.medium,
@@ -301,8 +305,8 @@ export class ThinkLinkNLP {
     
     // Combine neural network prediction with rule-based approach
     const ruleBasedPriority = this.extractPriorityRuleBased(tokens);
-    const neuralPriority = prediction.priority > 0.66 ? 'high' : 
-                          prediction.priority > 0.33 ? 'medium' : 'low';
+    const neuralPriority = prediction.priority > 0.7 ? 'high' : 
+                          prediction.priority > 0.4 ? 'medium' : 'low';
     
     // Weight both approaches (70% neural, 30% rule-based)
     return Math.random() < 0.7 ? neuralPriority : ruleBasedPriority;
@@ -334,8 +338,8 @@ export class ThinkLinkNLP {
       const prediction = this.predict(tokens);
       
       // Simple accuracy check for priority
-      const predictedPriority = prediction.priority > 0.66 ? 'high' : 
-                               prediction.priority > 0.33 ? 'medium' : 'low';
+      const predictedPriority = prediction.priority > 0.7 ? 'high' : 
+                               prediction.priority > 0.4 ? 'medium' : 'low';
       if (predictedPriority === sample.expectedOutput.priority) {
         correctPredictions++;
       }
@@ -349,9 +353,31 @@ export class ThinkLinkNLP {
 
   private tokenize(input: string): string[] {
     return input.toLowerCase()
-      .replace(/[.,/#$%^&*;:{}=_`~()\-/]/g, '')
-      .split(' ')
+      // Handle contractions
+      .replace(/n't/g, ' not')
+      .replace(/'re/g, ' are')
+      .replace(/'s/g, ' is')
+      .replace(/'d/g, ' would')
+      .replace(/'ll/g, ' will')
+      .replace(/'t/g, ' not')
+      .replace(/[.,/#$%^&*;:{}=_`~()\-/"“”]/g, '')
+      .split(/\s+/)
+      .map(token => this.stemToken(token))
       .filter(token => token.length > 0);
+  }
+
+  /**
+   * Basic stemming to reduce words to their root form
+   * This is a rudimentary implementation due to constraints
+   */
+  private stemToken(token: string): string {
+    const suffixes = ['ing', 'ed', 'ly', 'es', 's', 'ment'];
+    for (const suffix of suffixes) {
+      if (token.endsWith(suffix) && token.length > suffix.length + 2) { // Ensure meaningful stem
+        return token.slice(0, -suffix.length);
+      }
+    }
+    return token;
   }
 
   private extractCategory(tokens: string[]): string {
@@ -397,7 +423,7 @@ export class ThinkLinkNLP {
     const result: { due?: Date; recurring?: string } = {};
     
     // Handle recurring patterns
-    const recurringMatch = text.match(/every (day|week|month|year)/i);
+    const recurringMatch = text.match(/every (day|week|month|year|daily|weekly|monthly|yearly)/i);
     if (recurringMatch) {
       result.recurring = recurringMatch[1].toLowerCase();
     }
@@ -449,7 +475,7 @@ export class ThinkLinkNLP {
     const sentiment = this.analyzeSentiment(tokens);
     score += sentiment * 2;
 
-    return score >= 5 ? 'high' : score >= 3 ? 'medium' : 'low';
+    return score >= 6 ? 'high' : score >= 4 ? 'medium' : 'low';
   }
 
   // Enhanced processCommand method
@@ -467,14 +493,14 @@ export class ThinkLinkNLP {
     if (action === 'list' || action === 'show') {
       return {
         action: 'list',
-        message: 'Showing all tasks'
+        message: 'Displaying all tasks.'
       };
     }
 
     if (action === 'delete' || action === 'remove') {
-      const taskId = tokens[tokens.length - 1]; // Get the last token as ID
+      const taskId = tokens.find(token => this.isValidId(token));
       
-      if (taskId && taskId.length > 8) { // Basic validation for ID length
+      if (taskId) {
         return {
           action: 'delete',
           task: { id: taskId } as Task, // Create a minimal task object with just the ID
@@ -491,7 +517,7 @@ export class ThinkLinkNLP {
       // Handle calendar-related commands
       return {
         action: 'calendar',
-        message: 'Calendar functionality is under development'
+        message: 'Calendar functionality is under development.'
       };
     }
 
@@ -502,28 +528,20 @@ export class ThinkLinkNLP {
 
       // Generate smart suggestions
       if (!dateInfo.due) {
-        suggestions.push("Consider adding a due date for better task management");
+        suggestions.push("Consider adding a due date for better task management.");
       }
       if (category === 'personal' && text.includes('work')) {
-        suggestions.push("This might be better categorized as a 'work' task");
+        suggestions.push("This might be better categorized as a 'work' task.");
       }
       if (smartPriority === 'high' && !tokens.some(t => this.keywords.priority.high.includes(t))) {
-        suggestions.push("This task seems important. Consider marking it as high priority");
+        suggestions.push("This task seems important. Consider marking it as high priority.");
       }
 
-      // Attempt to extract task name from quoted strings
-      const quotedMatch = input.match(/["“”](.+?)["“”]/);
-      let taskName: string;
-
-      if (quotedMatch && quotedMatch[1].trim().length > 0) {
-        taskName = quotedMatch[1].trim();
-      } else {
-        // Fallback to summarization if no quoted string is found
-        taskName = this.summarizeTaskName(input);
-      }
+      // Attempt to extract task name from quoted strings or summarize
+      const taskName = this.extractTaskName(input) || this.summarizeTaskName(input);
 
       // Generate smart suggestions for the task name
-      if (!quotedMatch && taskName === 'New Task') {
+      if (!taskName || taskName === 'New Task') {
         suggestions.push("Couldn't extract a meaningful task name. Please provide more details.");
       }
 
@@ -542,7 +560,7 @@ export class ThinkLinkNLP {
       return {
         action: 'create',
         task,
-        message: `Created new ${task.priority} priority ${task.type} in ${task.category} category`,
+        message: `Created a new ${task.priority} priority ${task.type} in ${task.category} category.`,
         suggestions: suggestions.length > 0 ? suggestions : undefined
       };
     }
@@ -551,8 +569,8 @@ export class ThinkLinkNLP {
     const sentimentScore = this.analyzeSentiment(tokens);
     let priority = this.extractPriority(tokens);
     if (priority === 'medium') {
-      if (sentimentScore > 0) priority = 'high';
-      if (sentimentScore < 0) priority = 'low';
+      if (sentimentScore > 0.2) priority = 'high';
+      if (sentimentScore < -0.2) priority = 'low';
     }
 
     // Determine task type
@@ -560,20 +578,13 @@ export class ThinkLinkNLP {
     if (tokens.includes('event') || tokens.includes('meeting')) type = 'event';
     if (tokens.includes('note') || tokens.includes('document')) type = 'note';
 
-    // Attempt to extract task name from quoted strings
-    const quotedMatchElse = input.match(/["“”](.+?)["“”]/);
-    let taskNameElse: string;
-
-    if (quotedMatchElse && quotedMatchElse[1].trim().length > 0) {
-      taskNameElse = quotedMatchElse[1].trim();
-    } else {
-      // Fallback to summarization if no quoted string is found
-      taskNameElse = this.summarizeTaskName(input);
-    }
+    // Attempt to extract task name from quoted strings or summarize
+    const taskNameElse = this.extractTaskName(input) || this.summarizeTaskName(input);
 
     // Generate smart suggestions for the task name
-    if (!quotedMatchElse && taskNameElse === 'New Task') {
+    if (!taskNameElse || taskNameElse === 'New Task') {
       // Optionally add suggestions or handle accordingly
+      suggestions.push("Couldn't extract a meaningful task name. Please provide more details.");
     }
 
     // Generate smart suggestions:
@@ -593,8 +604,19 @@ export class ThinkLinkNLP {
     return {
       action: 'create',
       task: taskElse,
-      message: `Created new ${taskElse.priority} priority ${taskElse.type} in ${taskElse.category} category`
+      message: `Created a new ${taskElse.priority} priority ${taskElse.type} in ${taskElse.category} category.`
     };
+  }
+
+  /**
+   * Extracts task name from quoted strings or returns undefined
+   */
+  private extractTaskName(input: string): string | undefined {
+    const quotedMatch = input.match(/["“”](.+?)["“”]/);
+    if (quotedMatch && quotedMatch[1].trim().length > 0) {
+      return quotedMatch[1].trim();
+    }
+    return undefined;
   }
 
   /**
@@ -603,22 +625,18 @@ export class ThinkLinkNLP {
    */
   private summarizeTaskName(paragraph: string): string {
     // Split the paragraph into sentences
-    const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
+    const sentences = this.splitIntoSentences(paragraph);
+
+    if (sentences.length === 0) return 'New Task';
 
     // Action/Task related keywords that often indicate the main task
     const actionKeywords = new Set([
-      'prepare', 'create', 'develop', 'write', 'make', 'build', 'organize',
-      'schedule', 'plan', 'implement', 'review', 'update', 'complete'
+      ...this.verbGroups.creation,
+      ...this.verbGroups.planning
     ]);
 
     // Words to exclude from the task name (expanded stopwords)
-    const excludeWords = new Set([
-      ...this.extendedStopwords,
-      'need', 'should', 'must', 'will', 'have', 'has', 'had',
-      'would', 'could', 'might', 'may', 'can', 'extremely',
-      'urgent', 'important', 'critical', 'asap', 'soon',
-      'as', 'because', 'since', 'due', 'to'
-    ]);
+    const excludeWords = this.extendedStopwords;
 
     // Function to extract the main task from a sentence
     const extractMainTask = (sentence: string): string[] => {
@@ -626,7 +644,7 @@ export class ThinkLinkNLP {
       const result: string[] = [];
       let foundAction = false;
 
-      // Look for action keyword and following words
+      // Look for action keyword and collect subsequent important words
       for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i];
         
@@ -641,7 +659,7 @@ export class ThinkLinkNLP {
         }
 
         // Collect important nouns following the action
-        if (foundAction && result.length < 4) {
+        if (foundAction && result.length < 6) {
           // Add word if it's not in exclude list and not already in result
           if (!excludeWords.has(token) && !result.includes(token)) {
             result.push(token);
@@ -656,8 +674,8 @@ export class ThinkLinkNLP {
     const taskCandidates = sentences.map(sentence => {
       const mainTask = extractMainTask(sentence);
       const score = mainTask.length + 
-                   (sentence.toLowerCase().includes('urgent') ? 1 : 0) +
-                   (sentence.toLowerCase().includes('important') ? 1 : 0);
+                   (this.keywords.priority.high.some(word => sentence.toLowerCase().includes(word)) ? 2 : 0) +
+                   (this.keywords.priority.medium.some(word => sentence.toLowerCase().includes(word)) ? 1 : 0);
       
       return {
         task: mainTask,
@@ -672,7 +690,7 @@ export class ThinkLinkNLP {
     if (taskCandidates[0].task.length === 0) {
       const firstSentence = sentences[0];
       const tokens = this.tokenize(firstSentence);
-      const nouns = tokens.filter(token => !excludeWords.has(token)).slice(0, 3);
+      const nouns = tokens.filter(token => !this.extendedStopwords.has(token)).slice(0, 4);
       return this.capitalizeTaskName(nouns.join(' ')) || 'New Task';
     }
 
@@ -693,8 +711,8 @@ export class ThinkLinkNLP {
   private analyzeSentiment(tokens: string[]): number {
     let score = 0;
     tokens.forEach(token => {
-      if (this.sentimentWeights.positive.includes(token)) score += 0.2;
-      if (this.sentimentWeights.negative.includes(token)) score -= 0.2;
+      if (this.sentimentWeights.positive.includes(token)) score += 0.3;
+      if (this.sentimentWeights.negative.includes(token)) score -= 0.3;
     });
     return score;
   }
@@ -703,7 +721,7 @@ export class ThinkLinkNLP {
     const boxWidth = 80;
     const canvasLines: string[] = [
       '╭' + '─'.repeat(boxWidth - 2) + '╮',
-      '│' + ' ThinkLink Canvas '.padStart((boxWidth + 'ThinkLink Canvas'.length) / 2).padEnd(boxWidth - 2) + '',
+      '│' + ' ThinkLink Canvas '.padStart((boxWidth + 'ThinkLink Canvas'.length) / 2).padEnd(boxWidth - 2) + '│',
       '├' + '─'.repeat(boxWidth - 2) + '┤'
     ];
 
@@ -722,15 +740,15 @@ export class ThinkLinkNLP {
         const taskLine = `${priority} ${task.content}${due}`;
         
         // Handle long task lines with word wrapping
-        const wrappedLines = this.wrapText(taskLine, boxWidth - 4);
+        const wrappedLines = this.wrapText(taskLine, boxWidth - 6);
         wrappedLines.forEach(line => {
-          canvasLines.push('│  ' + line.padEnd(boxWidth - 4) + ' │');
+          canvasLines.push('│  ' + line.padEnd(boxWidth - 6) + ' │');
         });
 
-        // Add ID on the next line, indented and in a different color/style
-        canvasLines.push('│  ' + `└─ ID: ${task.id}`.padEnd(boxWidth - 4) + ' │');
+        // Add ID on the next line, indented and styled differently
+        canvasLines.push('│  ' + `└─ ID: ${task.id}`.padEnd(boxWidth - 6) + ' │');
         // Add a separator line after each task
-        canvasLines.push('│  ' + '─'.repeat(boxWidth - 6) + ' │');
+        canvasLines.push('│  ' + '─'.repeat(boxWidth - 8) + ' │');
       });
       
       // Category Separator
@@ -803,17 +821,17 @@ export class ThinkLinkNLP {
 
     // Extract location context
     const location = this.keywords.locations.find(loc => text.includes(loc));
-    if (location) contexts.push(`at: ${location}`);
+    if (location) contexts.push(`Location: ${location}`);
 
     // Extract relationship context
     const relationship = this.keywords.relationships.find(rel => text.includes(rel));
-    if (relationship) contexts.push(`with: ${relationship}`);
+    if (relationship) contexts.push(`With: ${relationship}`);
 
     // Extract temporal context
     Object.entries(this.contextPatterns).forEach(([type, pattern]) => {
       const match = text.match(pattern);
       if (match) {
-        contexts.push(`${type}: ${match[0]}`);
+        contexts.push(`${type.charAt(0).toUpperCase() + type.slice(1)}: ${match[0]}`);
       }
     });
 
@@ -833,7 +851,7 @@ export class ThinkLinkNLP {
     if (task.due) {
       // Check for conflicts
       const conflict = tasks.find(t => 
-        t.due?.getTime() === task.due?.getTime() && t.category === task.category
+        t.due?.toDateString() === task.due?.toDateString() && t.category === task.category
       );
       if (conflict) {
         console.log(`Conflict detected with task ID ${conflict.id} on ${task.due.toLocaleDateString()}`);
@@ -1023,6 +1041,7 @@ export class ThinkLinkNLP {
       if (this.verbGroups.creation.includes(verbPhrase.verb)) score += 3;
       if (this.verbGroups.modification.includes(verbPhrase.verb)) score += 2;
       if (this.verbGroups.completion.includes(verbPhrase.verb)) score += 2;
+      if (this.verbGroups.planning.includes(verbPhrase.verb)) score += 1;
     }
 
     // Score based on presence of priority indicators
@@ -1083,7 +1102,7 @@ export class ThinkLinkNLP {
    */
   private splitIntoSentences(text: string): string[] {
     return text
-      .replace(/([.?!])\s*(?=[A-Z])/g, "$1|")
+      .replace(/([.?!])\s*(?=[A-Z])/g, "$")
       .split("|")
       .map(s => s.trim())
       .filter(s => s.length > 0);
@@ -1146,10 +1165,10 @@ export class ThinkLinkNLP {
     // Count positive and negative words
     tokens.forEach(token => {
       if (this.sentimentWeights.positive.includes(token)) {
-        score += 0.2;
+        score += 0.3;
       }
       if (this.sentimentWeights.negative.includes(token)) {
-        score -= 0.2;
+        score -= 0.3;
       }
     });
 
@@ -1164,7 +1183,7 @@ export class ThinkLinkNLP {
     let score = 0;
     const lowercaseText = text.toLowerCase();
 
-    // Check for urgent keywords
+    // Check for urgent keywords with weights
     const urgentKeywords = [
       { word: 'urgent', weight: 0.5 },
       { word: 'asap', weight: 0.5 },
@@ -1190,6 +1209,12 @@ export class ThinkLinkNLP {
     return Math.min(1, score);
   }
 
+  // Method to validate task ID format
+  private isValidId(id: string): boolean {
+    const idPattern = /^[a-f0-9]{24}$/i; // Example pattern, adjust as needed
+    return idPattern.test(id);
+  }
+
   public extractTaskContent(tokens: string[]): string {
     return tokens
       .filter(token => 
@@ -1206,4 +1231,3 @@ export class ThinkLinkNLP {
       .join(' ');
   }
 }
-
