@@ -42,16 +42,34 @@ export class MazsAI {
   }
 
   private tokenize(text: string): number[] {
-    const words = text.toLowerCase().split(/\s+/);
-    words.forEach(word => this.vocabulary.add(word));
-    
-    // Create a simple bag-of-words vector with improved hashing
+    // Regular expressions to detect Chinese characters
+    const chineseRegex = /[\u4e00-\u9fff]/;
+
+    // Initialize an array to hold tokens
+    const tokens: string[] = [];
+    // Iterate through each character
+    for (const char of text) {
+      if (chineseRegex.test(char)) {
+        tokens.push(char);
+      } else if (/\w/.test(char)) {
+        // For English characters, build words
+        if (tokens.length === 0 || chineseRegex.test(tokens[tokens.length - 1])) {
+          tokens.push(char);
+        } else {
+          tokens[tokens.length - 1] += char;
+        }
+      }
+    }
+
+    tokens.forEach(token => this.vocabulary.add(token));
+
+    // Create a simple bag-of-words/characters vector with improved hashing
     const vector = new Array(100).fill(0);
-    words.forEach(word => {
-      const hash = this.hashString(word);
+    tokens.forEach(token => {
+      const hash = this.hashString(token);
       vector[hash % 100] += 1;
     });
-    
+
     return vector;
   }
 
@@ -125,10 +143,10 @@ export class MazsAI {
 
   private generateFallbackResponse(): string {
     const responses = [
-      "I'm not sure I understand. Could you rephrase that?",
-      "I'm still learning. Could you try asking in a different way?",
-      "I don't have enough information to respond to that properly.",
-      "Could you provide more context or details?",
+      "抱歉，我不太明白你的意思。能否請你換一種說法？",
+      "我正在學習中，能否請你提供更多細節？",
+      "目前我無法回答這個問題，能否問我其他的？",
+      "請提供更多資訊，以便我更好地幫助你。",
     ];
     
     return responses[Math.floor(Math.random() * responses.length)];

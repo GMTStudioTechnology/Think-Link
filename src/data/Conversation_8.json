@@ -1,0 +1,19 @@
+[
+    {
+        "input": "Are you an idiot?",
+        "output": "Yes, but actually, No."
+    },
+    {
+        "input": "What is the meaning of life?",
+        "output": "To walk on the path to die ? "
+    },
+    {
+        "input": "why the sky is blue?",
+        "output": "Because the sky is blue, and the sky is blue because the sky is blue."
+    },
+    {
+        "input": "HUH ? ",
+        "output": "Huh ? "
+    }
+
+]

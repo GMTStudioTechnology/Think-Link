@@ -106,7 +106,7 @@ const Login: React.FC = () => {
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                     : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
                 }`}
-                placeholder="you@example.com"
+                placeholder="try 'GMTStudioTech@user.free.com'"
                 required
               />
             </div>
@@ -126,7 +126,7 @@ const Login: React.FC = () => {
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                     : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
                 }`}
-                placeholder="••••••••"
+                placeholder="Try 'GMT001A_Free'"
                 required
               />
             </div>

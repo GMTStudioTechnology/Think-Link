@@ -23,6 +23,8 @@ import {
   FiPlay,
   FiPause,
   FiSquare,
+  FiDownload,
+  FiUpload,
 } from 'react-icons/fi';
 import classNames from 'classnames';
 import { AuthContext } from '../context/AuthContext';
@@ -30,6 +32,7 @@ import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { enUS } from 'date-fns/locale/en-US';
+import { saveAs } from 'file-saver';
 
 interface CommandResult {
   action: 'create' | 'list' | 'delete' | 'update' | 'complete' | 'chat' | string;
@@ -68,6 +71,27 @@ interface SidebarApp {
   name: string;
   icon: JSX.Element;
   component: () => JSX.Element;
+}
+
+// Add new interfaces
+interface StoredData {
+  tasks: Task[];
+  commandHistory: string[];
+  pomodoroHistory: PomodoroSession[];
+  calendarEvents: CalendarEvent[];
+  settings: UserSettings;
+}
+
+interface UserSettings {
+  pomodoroSettings: PomodoroSettings;
+  theme?: 'light' | 'dark';
+  // Add other user settings as needed
+}
+
+interface PomodoroSession {
+  date: Date;
+  duration: number;
+  type: 'work' | 'shortBreak' | 'longBreak';
 }
 
 const ThinkLink: React.FC = () => {
@@ -349,7 +373,7 @@ const ThinkLink: React.FC = () => {
         newHistory[newHistory.length - 1] = text.slice(0, i);
         return newHistory;
       });
-      await new Promise(resolve => setTimeout(resolve,1)); // Adjust typing speed here (ms per character)
+      await new Promise(resolve => setTimeout(resolve,0.001)); // Adjust typing speed here (ms per character)
     }
   };
 
@@ -943,7 +967,160 @@ const ThinkLink: React.FC = () => {
     }
   ];
 
-  // Replace the existing canvas sidebar with this new component
+  // Load data from localStorage on component mount
+  useEffect(() => {
+    const loadStoredData = () => {
+      try {
+        const storedData = localStorage.getItem('thinklink-data');
+        if (storedData) {
+          const parsedData: StoredData = JSON.parse(storedData, (key, value) => {
+            // Convert stored date strings back to Date objects
+            if (key === 'date' || key === 'start' || key === 'end') {
+              return new Date(value);
+            }
+            return value;
+          });
+
+          setTasks(parsedData.tasks || []);
+          setCommandHistory(parsedData.commandHistory || []);
+          setPomodoroHistory(parsedData.pomodoroHistory || []);
+          setCalendarEvents(parsedData.calendarEvents || []);
+          // Load other stored data as needed
+        }
+      } catch (error) {
+        console.error('Error loading stored data:', error);
+      }
+    };
+
+    loadStoredData();
+  }, []);
+
+  // Save data to localStorage whenever relevant state changes
+  useEffect(() => {
+    const saveData = () => {
+      try {
+        const dataToStore: StoredData = {
+          tasks,
+          commandHistory,
+          pomodoroHistory,
+          calendarEvents,
+          settings: {
+            pomodoroSettings,
+            // Add other settings
+          }
+        };
+        localStorage.setItem('thinklink-data', JSON.stringify(dataToStore));
+      } catch (error) {
+        console.error('Error saving data:', error);
+      }
+    };
+
+    saveData();
+  }, [tasks, commandHistory, pomodoroHistory, calendarEvents, pomodoroSettings]);
+
+  // Add new functions for history management and data import/export
+  const clearHistory = () => {
+    if (window.confirm('Are you sure you want to clear command history? This cannot be undone.')) {
+      setCommandHistory([]);
+    }
+  };
+
+  const exportData = () => {
+    try {
+      const dataToExport: StoredData = {
+        tasks,
+        commandHistory,
+        pomodoroHistory,
+        calendarEvents,
+        settings: {
+          pomodoroSettings,
+          // Add other settings
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {
+        type: 'application/json'
+      });
+      
+      saveAs(blob, `thinklink-backup-${new Date().toISOString().slice(0, 10)}.json`);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      setCommandHistory(prev => [...prev, 'Error: Failed to export data']);
+    }
+  };
+
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData: StoredData = JSON.parse(e.target?.result as string, (key, value) => {
+          // Convert stored date strings back to Date objects
+          if (key === 'date' || key === 'start' || key === 'end') {
+            return new Date(value);
+          }
+          return value;
+        });
+
+        // Validate imported data structure
+        if (!importedData.tasks || !Array.isArray(importedData.tasks)) {
+          throw new Error('Invalid data format');
+        }
+
+        // Update state with imported data
+        setTasks(importedData.tasks);
+        setCommandHistory(importedData.commandHistory || []);
+        setPomodoroHistory(importedData.pomodoroHistory || []);
+        setCalendarEvents(importedData.calendarEvents || []);
+        // Update other state as needed
+
+        setCommandHistory(prev => [...prev, 'Successfully imported data']);
+      } catch (error) {
+        console.error('Error importing data:', error);
+        setCommandHistory(prev => [...prev, 'Error: Failed to import data']);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Add new UI elements for data management
+  const renderDataManagement = () => (
+    <div className="mt-6 border-t border-white pt-4">
+      <h3 className="font-medium mb-4">Data Management</h3>
+      <div className="space-y-3">
+        <button
+          onClick={clearHistory}
+          className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors flex items-center justify-center space-x-2"
+        >
+          <FiTrash2 size={16} />
+          <span>Clear Command History</span>
+        </button>
+        
+        <button
+          onClick={exportData}
+          className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
+        >
+          <FiDownload size={16} />
+          <span>Export Data</span>
+        </button>
+        
+        <label className="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors flex items-center justify-center space-x-2 cursor-pointer">
+          <FiUpload size={16} />
+          <span>Import Data</span>
+          <input
+            type="file"
+            accept=".json"
+            onChange={importData}
+            className="hidden"
+          />
+        </label>
+      </div>
+    </div>
+  );
+
+  // Replace the existing renderSidebar function with this updated version
   const renderSidebar = () => (
     <motion.div
       initial={{ x: '100%' }}
@@ -1256,6 +1433,11 @@ const ThinkLink: React.FC = () => {
                 />
               </div>
             )}
+
+            {/* Add Data Management Section at the bottom */}
+            <div className="px-6 pb-6">
+              {renderDataManagement()}
+            </div>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -1381,7 +1563,7 @@ const ThinkLink: React.FC = () => {
               onChange={(e) => setCurrentCommand(e.target.value)}
               onKeyDown={handleKeyDown}
               className="flex-1 ml-0 md:ml-2 bg-transparent outline-none caret-emerald-400 font-mono text-white text-sm md:text-base"
-              placeholder="Enter command..."
+              placeholder="Enter Natural Language Command or chat with Mazs AI by using '/chat'"
               autoFocus
               spellCheck={false}
             />
