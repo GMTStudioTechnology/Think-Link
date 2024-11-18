@@ -125,18 +125,24 @@ export class ThinkLinkNLP {
   ]);
 
   private nlpPatterns = {
-    // Common sentence structures
-    subjectVerbObject: /\b(\w+)\s+(is|are|was|were|have|has|had)\s+(\w+)\b/i,
-    actionObject: /\b(create|update|review|prepare|develop|implement|fix)\s+([a-z\s]+)\b/i,
-    timeExpression: /\b(today|tomorrow|next|this|coming|following)\s+(week|month|day|morning|afternoon|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i,
+    // Enhanced sentence structures with more variations
+    subjectVerbObject: /\b(\w+)\s+(is|are|was|were|have|has|had|will|would|should|could|must)\s+(\w+)\b/i,
+    actionObject: /\b(create|update|review|prepare|develop|implement|fix|organize|schedule|plan|complete|finish)\s+([a-z\s]+)\b/i,
+    timeExpression: /\b(today|tomorrow|next|this|coming|following|in|after|within|by)\s+(week|month|day|morning|afternoon|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday|hour|minute|second)s?\b/i,
     
-    // Task-specific patterns
-    deadlinePattern: /\b(due|deadline|by|before|until)\s+([a-z0-9\s,]+)\b/i,
-    priorityPattern: /\b(urgent|asap|important|critical|high priority|low priority|medium priority)\b/i,
+    // Enhanced task-specific patterns
+    deadlinePattern: /\b(due|deadline|by|before|until|not later than|no later than)\s+([a-z0-9\s,]+)\b/i,
+    priorityPattern: /\b(urgent|asap|important|critical|high priority|low priority|medium priority|crucial|vital|essential)\b/i,
     
-    // Entity patterns
-    peoplePattern: /\b(with|for|from)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/,
-    locationPattern: /\b(at|in|from)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/
+    // Enhanced entity patterns
+    peoplePattern: /\b(with|for|from|to|by)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/,
+    locationPattern: /\b(at|in|from|to|near|around)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/,
+    
+    // New patterns for better understanding
+    conditionalPattern: /\b(if|when|unless|until|after|before)\s+([^,.]+)/i,
+    quantityPattern: /\b(\d+)\s+(minutes?|hours?|days?|weeks?|months?|years?)\b/i,
+    statusPattern: /\b(completed|done|finished|in progress|pending|started|not started)\b/i,
+    relationPattern: /\b(depends on|blocked by|related to|linked with|part of)\b/i
   };
 
   private verbGroups = {
