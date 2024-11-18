@@ -1,12 +1,9 @@
 import conversationData from './Conversation.json';
 import conversationData_2 from './Conversation_2.json';
 import conversationData_3 from './Conversation_3.json';
-import conversationData_4 from './Conversation_4.json';
-import conversationData_5 from './Conversation_5.json';
 import conversationData_6 from './Conversation_6.json';
 import conversationData_7 from './Conversation_7.json';
 import conversationData_8 from './Conversation_8.json';
-import conversationData_9 from './Chinese_Conver.json';
 
 export interface TrainingData {
   input: string;
@@ -26,11 +23,6 @@ interface Intent {
   context_set: string;
 }
 
-interface QuestionsEntry {
-  question: string;
-  answer: string;
-}
-
 function trimAndNormalize(entry: { input: string; output: string }): TrainingData {
   return {
     input: normalizeText(entry.input),
@@ -43,23 +35,17 @@ export function initializeTrainingData(): TrainingData[] {
     const data1 = loadConversationData(conversationData);
     const data2 = loadTrainingData(conversationData_2);
     const data3 = loadIntents(conversationData_3);
-    const data4 = loadQuestions(conversationData_4);
-    const data5 = loadIntents(conversationData_5);
     const data6 = loadTrainingData(conversationData_6);
     const data7 = loadTrainingData(conversationData_7);
     const data8 = loadTrainingData(conversationData_8);
-    const data9 = loadTrainingData(conversationData_9);
 
     const allData = [
       ...data1,
       ...data2,
       ...data3,
-      ...data4,
-      ...data5,
       ...data6,
       ...data7,
       ...data8,
-      ...data9,
     ];
 
     const normalizedData = allData.map(trimAndNormalize);
@@ -105,21 +91,13 @@ function loadIntents(data: unknown): TrainingData[] {
   );
 }
 
-function loadQuestions(data: unknown): TrainingData[] {
-  const questions = (data as { questions: QuestionsEntry[] }).questions;
-  if (!questions) throw new Error("Invalid questions data structure");
-
-  return questions.map(entry => ({
-    input: entry.question.trim(),
-    output: entry.answer.trim(),
-  }));
-}
-
 function normalizeText(text: string): string {
   return text
-    .replace(/['’]/g, "")
-    .replace(/[^a-zA-Z0-9\u4e00-\u9fff\s]/g, "")
+    .toLowerCase()
+    .replace(/['']/g, "'")
+    .replace(/[""]/g, '"')
     .replace(/\s+/g, " ")
+    .replace(/[^\w\s'".,!?-]/g, "")
     .trim();
 }
 
@@ -140,14 +118,21 @@ function splitData(data: TrainingData[], trainRatio: number): { trainingSet: Tra
   return { trainingSet, testingSet };
 }
 
-// Basic Vectorization (Word Count)
-export function vectorizeData(data: TrainingData[]): { inputs: number[][]; outputs: string[] } {
+// Enhanced vectorization with TF-IDF weighting
+export function vectorizeData(data: TrainingData[]): { inputs: number[][]; outputs: string[]; vocabulary: string[] } {
   const vocabularySet: Set<string> = new Set();
+  const documentFrequency: { [key: string]: number } = {};
   
+  // Build vocabulary and calculate document frequency
   data.forEach(entry => {
-    const words = entry.input.split(" ");
-    words.forEach(word => {
+    const words = entry.input.toLowerCase()
+      .split(/[\s.,!?]+/)
+      .filter(word => word.length > 1);
+    
+    const uniqueWords = new Set(words);
+    uniqueWords.forEach(word => {
       vocabularySet.add(word);
+      documentFrequency[word] = (documentFrequency[word] || 0) + 1;
     });
   });
 
@@ -159,14 +144,69 @@ export function vectorizeData(data: TrainingData[]): { inputs: number[][]; outpu
 
   const inputs = data.map(entry => {
     const vector = Array(vocabulary.length).fill(0);
-    entry.input.split(" ").forEach(word => {
+    const words = entry.input.toLowerCase()
+      .split(/[\s.,!?]+/)
+      .filter(word => word.length > 1);
+    
+    const wordCount: { [key: string]: number } = {};
+    
+    // Calculate term frequency
+    words.forEach(word => {
+      wordCount[word] = (wordCount[word] || 0) + 1;
+    });
+
+    // Calculate TF-IDF for each word
+    Object.keys(wordCount).forEach(word => {
       if (wordIndex[word] !== undefined) {
-        vector[wordIndex[word]] += 1;
+        const tf = wordCount[word] / words.length;
+        const idf = Math.log(data.length / (documentFrequency[word] || 1));
+        vector[wordIndex[word]] = tf * idf;
       }
     });
+
     return vector;
   });
 
   const outputs = data.map(entry => entry.output);
-  return { inputs, outputs };
+  return { inputs, outputs, vocabulary };
+}
+
+// Add a function to calculate similarity between vectors
+export function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
+  const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
+  const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
+  return dotProduct / (magnitudeA * magnitudeB) || 0;
+}
+
+// Add a function to find the best matching response
+export function findBestMatch(query: string, trainingData: TrainingData[], threshold: number = 0.3): string {
+  const queryVector = vectorizeSingleInput(query, Array.from(new Set(trainingData.map(d => d.input.split(' ')).flat())));
+  let bestMatch = { similarity: 0, response: '' };
+
+  trainingData.forEach(entry => {
+    const entryVector = vectorizeSingleInput(entry.input, Array.from(new Set(trainingData.map(d => d.input.split(' ')).flat())));
+    const similarity = cosineSimilarity(queryVector, entryVector);
+    
+    if (similarity > bestMatch.similarity) {
+      bestMatch = { similarity, response: entry.output };
+    }
+  });
+
+  return bestMatch.similarity >= threshold ? bestMatch.response : "I'm not sure how to respond to that.";
+}
+
+// Helper function to vectorize a single input
+function vectorizeSingleInput(input: string, vocabulary: string[]): number[] {
+  const vector = new Array(vocabulary.length).fill(0);
+  const words = input.toLowerCase().split(/[\s.,!?]+/).filter(word => word.length > 1);
+  
+  words.forEach(word => {
+    const index = vocabulary.indexOf(word);
+    if (index !== -1) {
+      vector[index]++;
+    }
+  });
+  
+  return vector;
 }
