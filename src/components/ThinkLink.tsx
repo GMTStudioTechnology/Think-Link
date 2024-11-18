@@ -25,6 +25,7 @@ import {
   FiSquare,
   FiDownload,
   FiUpload,
+  FiMic,
 } from 'react-icons/fi';
 import classNames from 'classnames';
 import { AuthContext } from '../context/AuthContext';
@@ -33,6 +34,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { enUS } from 'date-fns/locale/en-US';
 import { saveAs } from 'file-saver';
+import VoiceAssistantModal from './VoiceAssistantModal';
 
 interface CommandResult {
   action: 'create' | 'list' | 'delete' | 'update' | 'complete' | 'chat' | string;
@@ -1444,6 +1446,16 @@ const ThinkLink: React.FC = () => {
     </motion.div>
   );
 
+  // Add new state
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  // Add voice command handler with the correct reference to nlpModel
+  const handleVoiceCommand = (command: string) => {
+    setCurrentCommand(command); // Set the command to the input field
+    handleCommandSubmit(); // Call without arguments as it uses currentCommand state
+    setIsVoiceModalOpen(false);
+  };
+
   return (
     <div className="h-screen w-full p-4 md:p-6 flex flex-col md:flex-row transition-colors duration-500 overflow-hidden bg-black text-white">
       {/* Terminal Section */}
@@ -1603,6 +1615,24 @@ const ThinkLink: React.FC = () => {
 
       {/* Add Calendar Modal to the UI */}
       {showCalendar && renderCalendar()}
+
+      {/* Voice Assistant Button */}
+      <button
+        onClick={() => setIsVoiceModalOpen(true)}
+        className="fixed bottom-6 right-20 text-black bg-white p-4 rounded-full shadow-lg focus:outline-none hover:opacity-80 transition-opacity z-50"
+        title="Voice Assistant"
+        aria-label="Open Voice Assistant"
+      >
+        <FiMic size={24} />
+      </button>
+
+      {/* Voice Assistant Modal */}
+      <VoiceAssistantModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onCommand={handleVoiceCommand}
+        aiModel={aiModel.current}
+      />
     </div>
   );
 };

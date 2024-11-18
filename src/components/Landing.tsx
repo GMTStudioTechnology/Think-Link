@@ -143,7 +143,7 @@ const Landing: React.FC = () => {
               <p className={`text-xl lg:text-2xl leading-relaxed max-w-2xl ${
                 darkMode ? 'text-gray-300' : 'text-gray-700'
               }`}>
-                We (GMTStudio) are developing a new AI tools, by using Mazs AI v1.5.0 anatra  and ThinkLink AI v1.0.0 Model.
+                We (GMTStudio) are developing a new AI tools, by using Mazs AI v1.5.0 Pato  and ThinkLink AI v1.0.0 Model.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-6 pt-8">
