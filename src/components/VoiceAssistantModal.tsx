@@ -37,6 +37,7 @@ interface SpeechRecognition extends EventTarget {
   onerror: (event: SpeechRecognitionErrorEvent) => void;
   onend: () => void;
   onstart: () => void;
+  onaudioend: () => void;
   start: () => void;
   stop: () => void;
   addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
@@ -240,38 +241,40 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   // Speech Recognition Effect
   useEffect(() => {
     let recognition: SpeechRecognition | null = null;
-    let silenceTimer: NodeJS.Timeout;
+    let silenceTimer: NodeJS.Timeout | null = null;
+    let silenceStart: number | null = null;
+    const SILENCE_THRESHOLD = 1500;
 
     const setupRecognition = async () => {
       const SpeechRecognition = await initializeSpeechRecognition();
 
       if (SpeechRecognition && isListening) {
         recognition = new SpeechRecognition() as SpeechRecognition;
-        recognition.continuous = true; // Keep listening until explicitly stopped
+        recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
 
         let finalTranscript = '';
+        let lastSpeechTime = Date.now();
 
         recognition.onresult = (event: SpeechRecognitionEvent) => {
           let interimTranscript = '';
+          lastSpeechTime = Date.now();
 
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
 
             if (event.results[i].isFinal) {
-              finalTranscript = transcript; // Only keep the latest final transcript
+              finalTranscript = transcript;
               
               // Clear any existing silence timer
-              clearTimeout(silenceTimer);
+              if (silenceTimer) {
+                clearTimeout(silenceTimer);
+                silenceTimer = null;
+              }
               
-              // Set a new silence timer
-              silenceTimer = setTimeout(() => {
-                if (finalTranscript.trim()) {
-                  setIsListening(false); // Stop listening
-                  handleTranscript(finalTranscript.trim()); // Process the final transcript
-                }
-              }, 1500); // Wait 1.5 seconds of silence before processing
+              // Start silence detection
+              silenceStart = Date.now();
             } else {
               interimTranscript = transcript;
             }
@@ -282,6 +285,30 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
           }
         };
 
+        recognition.onaudioend = () => {
+          const currentTime = Date.now();
+          if (currentTime - lastSpeechTime > SILENCE_THRESHOLD) {
+            setIsListening(false);
+            if (finalTranscript.trim()) {
+              handleTranscript(finalTranscript.trim());
+            }
+          }
+        };
+
+        // Regular interval to check for silence
+        const silenceCheckInterval = setInterval(() => {
+          if (silenceStart) {
+            const currentTime = Date.now();
+            if (currentTime - silenceStart > SILENCE_THRESHOLD) {
+              setIsListening(false);
+              if (finalTranscript.trim()) {
+                handleTranscript(finalTranscript.trim());
+              }
+              clearInterval(silenceCheckInterval);
+            }
+          }
+        }, 500);
+
         recognition.onstart = () => {
           console.log('Speech recognition started');
           setIsListening(true);
@@ -290,14 +317,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
 
         recognition.onend = () => {
           console.log('Speech recognition ended');
-          if (isListening) {
-            // Restart recognition if we're still supposed to be listening
-            try {
-              recognition?.start();
-            } catch (error) {
-              console.error('Error restarting recognition:', error);
-            }
-          }
+          clearInterval(silenceCheckInterval);
         };
 
         try {
