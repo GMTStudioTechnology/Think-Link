@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiMic, FiMicOff, FiX, FiCommand } from 'react-icons/fi';
+import { FiMic, FiMicOff, FiX, FiCommand, FiActivity } from 'react-icons/fi';
 import { MazsAI } from './MazsAI';
 import { Tooltip } from 'react-tooltip';
+import { findBestMatch, TrainingData } from '../data/NLP';
 
 // Define proper types for Web Speech API
 interface SpeechRecognitionEvent {
@@ -59,20 +60,24 @@ interface VoiceAssistantModalProps {
   onClose: () => void;
   onCommand: (command: string) => void;
   aiModel: MazsAI;
+  trainingData: TrainingData[];
 }
 
 const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   isOpen,
   onClose,
   aiModel,
+  trainingData,
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isNLPMode, setIsNLPMode] = useState(false);
   const [visualizerData, setVisualizerData] = useState<number[]>(Array(10).fill(10));
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [textInput, setTextInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [accumulatedTranscript, setAccumulatedTranscript] = useState('');
 
   // Load voices on component mount
   useEffect(() => {
@@ -238,12 +243,23 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     </div>
   );
 
-  // Speech Recognition Effect
+  // Process NLP Response
+  const processNLPResponse = useCallback(async (transcript: string) => {
+    try {
+      const nlpResponse = findBestMatch(transcript, trainingData);
+      
+      if (nlpResponse) {
+        await handleTranscript(nlpResponse);
+      }
+    } catch (error) {
+      console.error('NLP Processing Error:', error);
+      setError('Failed to process NLP response');
+    }
+  }, [trainingData, handleTranscript]);
+
+  // Enhanced Speech Recognition Effect with NLP Mode
   useEffect(() => {
     let recognition: SpeechRecognition | null = null;
-    let silenceTimer: NodeJS.Timeout | null = null;
-    let silenceStart: number | null = null;
-    const SILENCE_THRESHOLD = 1500;
 
     const setupRecognition = async () => {
       const SpeechRecognition = await initializeSpeechRecognition();
@@ -254,70 +270,31 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         recognition.interimResults = true;
         recognition.lang = 'en-US';
 
-        let finalTranscript = '';
-        let lastSpeechTime = Date.now();
-
         recognition.onresult = (event: SpeechRecognitionEvent) => {
-          let interimTranscript = '';
-          lastSpeechTime = Date.now();
-
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
 
             if (event.results[i].isFinal) {
-              finalTranscript = transcript;
-              
-              // Clear any existing silence timer
-              if (silenceTimer) {
-                clearTimeout(silenceTimer);
-                silenceTimer = null;
+              // Use the transcript for NLP mode
+              if (isNLPMode) {
+                setAccumulatedTranscript(prev => prev + transcript + ' ');
               }
-              
-              // Start silence detection
-              silenceStart = Date.now();
             } else {
-              interimTranscript = transcript;
+              // Update text input with interim results
+              setTextInput(transcript);
             }
           }
-
-          if (interimTranscript) {
-            setTextInput(interimTranscript);
-          }
-        };
-
-        recognition.onaudioend = () => {
-          const currentTime = Date.now();
-          if (currentTime - lastSpeechTime > SILENCE_THRESHOLD) {
-            setIsListening(false);
-            if (finalTranscript.trim()) {
-              handleTranscript(finalTranscript.trim());
-            }
-          }
-        };
-
-        // Regular interval to check for silence
-        const silenceCheckInterval = setInterval(() => {
-          if (silenceStart) {
-            const currentTime = Date.now();
-            if (currentTime - silenceStart > SILENCE_THRESHOLD) {
-              setIsListening(false);
-              if (finalTranscript.trim()) {
-                handleTranscript(finalTranscript.trim());
-              }
-              clearInterval(silenceCheckInterval);
-            }
-          }
-        }, 500);
-
-        recognition.onstart = () => {
-          console.log('Speech recognition started');
-          setIsListening(true);
-          setError(null);
         };
 
         recognition.onend = () => {
           console.log('Speech recognition ended');
-          clearInterval(silenceCheckInterval);
+          
+          if (isNLPMode && accumulatedTranscript.trim()) {
+            processNLPResponse(accumulatedTranscript.trim());
+            setAccumulatedTranscript('');
+          }
+          
+          setIsListening(false);
         };
 
         try {
@@ -338,11 +315,22 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
       if (recognition) {
         recognition.stop();
       }
-      if (silenceTimer) {
-        clearTimeout(silenceTimer);
-      }
     };
-  }, [isListening, handleTranscript]);
+  }, [isListening, isNLPMode, accumulatedTranscript, processNLPResponse]);
+
+  // NLP Mode Toggle Button
+  const handleNLPModeToggle = () => {
+    if (isSpeaking || isProcessing) return;
+
+    setIsNLPMode(prev => !prev);
+    
+    if (!isNLPMode) {
+      setIsListening(true);
+      setAccumulatedTranscript('');
+    } else {
+      setIsListening(false);
+    }
+  };
 
   // Test Conversation
   const testConversation = async (text: string) => {
@@ -501,37 +489,64 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                   }`}
                 />
                 <span className="text-xs text-gray-300">
-                  {isListening
-                    ? 'Listening...'
-                    : isSpeaking
-                    ? 'Speaking...'
-                    : isProcessing
-                    ? 'Processing...'
-                    : error
-                    ? error
-                    : 'Ready'}
+                  {isNLPMode 
+                    ? 'NLP Mode: Listening...' 
+                    : (isListening
+                      ? 'Listening...'
+                      : isSpeaking
+                      ? 'Speaking...'
+                      : isProcessing
+                      ? 'Processing...'
+                      : error
+                      ? error
+                      : 'Ready')}
                 </span>
               </div>
 
-              {/* Enhanced Main Control Button with Tooltip */}
-              <Tooltip content={isListening ? "Press to Stop" : "Press to Talk"} place="top">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleMicrophoneClick}
-                  disabled={isProcessing || isSpeaking}
-                  className={`p-4 rounded-full ${
-                    isListening
-                      ? 'bg-gradient-to-r from-red-500 to-red-600'
-                      : 'bg-gradient-to-r from-blue-500 to-blue-600'
-                  } text-white shadow-lg ${
-                    isProcessing || isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
-                  } transition-all duration-300`}
-                  aria-label={isListening ? "Stop Listening" : "Start Listening"}
+              <div className="flex items-center space-x-2">
+                {/* NLP Mode Button */}
+                <Tooltip 
+                  content={isNLPMode ? "Disable NLP Mode" : "Enable NLP Mode"} 
+                  place="top"
                 >
-                  {isListening ? <FiMicOff size={24} /> : <FiMic size={24} />}
-                </motion.button>
-              </Tooltip>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleNLPModeToggle}
+                    disabled={isProcessing || isSpeaking}
+                    className={`p-3 rounded-full ${
+                      isNLPMode
+                        ? 'bg-gradient-to-r from-green-500 to-green-600'
+                        : 'bg-gradient-to-r from-gray-500 to-gray-600'
+                    } text-white shadow-lg ${
+                      isProcessing || isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
+                    } transition-all duration-300`}
+                    aria-label={isNLPMode ? "Disable NLP Mode" : "Enable NLP Mode"}
+                  >
+                    <FiActivity size={20} />
+                  </motion.button>
+                </Tooltip>
+
+                {/* Existing Microphone Button */}
+                <Tooltip content={isListening ? "Press to Stop" : "Press to Talk"} place="top">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleMicrophoneClick}
+                    disabled={isProcessing || isSpeaking}
+                    className={`p-4 rounded-full ${
+                      isListening
+                        ? 'bg-gradient-to-r from-red-500 to-red-600'
+                        : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                    } text-white shadow-lg ${
+                      isProcessing || isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
+                    } transition-all duration-300`}
+                    aria-label={isListening ? "Stop Listening" : "Start Listening"}
+                  >
+                    {isListening ? <FiMicOff size={24} /> : <FiMic size={24} />}
+                  </motion.button>
+                </Tooltip>
+              </div>
             </div>
 
             {/* Quick Test Buttons */}

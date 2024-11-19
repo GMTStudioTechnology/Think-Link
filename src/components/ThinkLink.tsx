@@ -35,6 +35,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { enUS } from 'date-fns/locale/en-US';
 import { saveAs } from 'file-saver';
 import VoiceAssistantModal from './VoiceAssistantModal';
+import { initializeTrainingData } from '../data/NLP';
 
 interface CommandResult {
   action: 'create' | 'list' | 'delete' | 'update' | 'complete' | 'chat' | string;
@@ -1456,6 +1457,11 @@ const ThinkLink: React.FC = () => {
     setIsVoiceModalOpen(false);
   };
 
+  // Generate training data
+  const trainingData = useMemo(() => {
+    return initializeTrainingData();
+  }, []); // Empty dependency array means this will only be computed once
+
   return (
     <div className="h-screen w-full p-4 md:p-6 flex flex-col md:flex-row transition-colors duration-500 overflow-hidden bg-black text-white">
       {/* Terminal Section */}
@@ -1632,6 +1638,7 @@ const ThinkLink: React.FC = () => {
         onClose={() => setIsVoiceModalOpen(false)}
         onCommand={handleVoiceCommand}
         aiModel={aiModel.current}
+        trainingData={trainingData}
       />
     </div>
   );
