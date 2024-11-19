@@ -34,6 +34,7 @@ interface SpeechRecognition extends EventTarget {
   lang: string;
   onresult: (event: SpeechRecognitionEvent) => void;
   onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
   start: () => void;
   stop: () => void;
 }
@@ -79,15 +80,23 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
 
   // Select a preferred voice
   const selectVoice = useCallback((): SpeechSynthesisVoice | null => {
-    // Preferences: English (US) female voice
+    // Preferences: English (GB/UK) male voice
     const preferredVoice = voices.find(
       (voice) =>
-        voice.lang === 'en-US' && voice.name.toLowerCase().includes('female')
+        (voice.lang === 'en-GB' || voice.lang === 'en-UK') && 
+        voice.name.toLowerCase().includes('male')
     );
 
     if (preferredVoice) return preferredVoice;
 
-    // Fallback to the first available voice
+    // Fallback to any British voice
+    const britishVoice = voices.find(
+      (voice) => voice.lang === 'en-GB' || voice.lang === 'en-UK'
+    );
+
+    if (britishVoice) return britishVoice;
+
+    // Final fallback to the first available voice
     return voices.length > 0 ? voices[0] : null;
   }, [voices]);
 
@@ -96,49 +105,65 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     async (text: string) => {
       setIsProcessing(true);
 
-      const response = aiModel.processInput(text);
-
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(response);
-
-        const voice = selectVoice();
-        if (voice) {
-          utterance.voice = voice;
+      try {
+        // Add await here since processInput might be async
+        const response = await aiModel.processInput(text);
+        
+        // Add error handling
+        if (!response) {
+          console.error('No response from AI model');
+          setIsProcessing(false);
+          return;
         }
 
-        // Adjust speech parameters for more natural speech
-        utterance.rate = 1; // Normal rate (0.1 to 10)
-        utterance.pitch = 1.2; // Slightly higher pitch (0 to 2)
-        utterance.volume = 0.9; // Volume between 0 and 1
+        if ('speechSynthesis' in window) {
+          // Cancel any ongoing speech before starting new one
+          if (window.speechSynthesis.speaking) {
+            window.speechSynthesis.cancel();
+          }
 
-        // Handle natural pauses by adding punctuation
-        const formattedResponse = response
-          .replace(/\. /g, '.\n') // Add newline after periods
-          .replace(/, /g, ',\n'); // Add newline after commas
-        utterance.text = formattedResponse;
+          const utterance = new SpeechSynthesisUtterance(response);
 
-        // Event listeners to manage speaking state
-        utterance.onstart = () => {
-          console.log('Started speaking');
-          setIsSpeaking(true);
-        };
+          const voice = selectVoice();
+          if (voice) {
+            utterance.voice = voice;
+          }
 
-        utterance.onend = () => {
-          console.log('Finished speaking');
-          setIsSpeaking(false);
+          // Adjust speech parameters for more natural speech
+          utterance.rate = 1; // Slightly slower rate
+          utterance.pitch = 0.9; // Lower pitch for male voice
+          utterance.volume = 1; // Keep the same volume
+
+          // Handle natural pauses by adding punctuation
+          const formattedResponse = response
+            .replace(/\. /g, '.\n') // Add newline after periods
+            .replace(/, /g, ',\n'); // Add newline after commas
+          utterance.text = formattedResponse;
+
+          // Event listeners to manage speaking state
+          utterance.onstart = () => {
+            console.log('Started speaking');
+            setIsSpeaking(true);
+          };
+
+          utterance.onend = () => {
+            console.log('Finished speaking');
+            setIsSpeaking(false);
+            setIsProcessing(false);
+          };
+
+          utterance.onerror = (event) => {
+            console.error('Speech error:', event);
+            setIsSpeaking(false);
+            setIsProcessing(false);
+          };
+
+          window.speechSynthesis.speak(utterance);
+        } else {
           setIsProcessing(false);
-        };
-
-        utterance.onerror = (event) => {
-          console.error('Speech error:', event);
-          setIsSpeaking(false);
-          setIsProcessing(false);
-        };
-
-        window.speechSynthesis.speak(utterance);
-      } else {
+        }
+      } catch (error) {
+        console.error('Error processing input:', error);
         setIsProcessing(false);
       }
     },
@@ -223,13 +248,23 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         recognition.interimResults = true;
         recognition.lang = 'en-US';
 
-        recognition.onresult = (event: SpeechRecognitionEvent) => {
-          const current = event.resultIndex;
-          const transcriptText = event.results[current][0].transcript;
+        let finalTranscript = '';
 
-          if (event.results[current].isFinal) {
-            handleTranscript(transcriptText);
-            setIsListening(false);
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+              handleTranscript(finalTranscript);
+              finalTranscript = '';
+            }
+          }
+        };
+
+        recognition.onend = () => {
+          if (isListening) {
+            recognition.start();
           }
         };
 
@@ -269,9 +304,9 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     }
 
     // Adjust speech parameters
-    utterance.rate = 1;
-    utterance.pitch = 1.2;
-    utterance.volume = 0.9;
+    utterance.rate = 0.9; // Slightly slower rate
+    utterance.pitch = 0.9; // Lower pitch for male voice
+    utterance.volume = 0.9; // Keep the same volume
 
     // Handle natural pauses
     const formattedResponse = utterance.text

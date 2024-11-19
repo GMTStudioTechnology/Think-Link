@@ -4,10 +4,18 @@ import conversationData_3 from './Conversation_3.json';
 import conversationData_6 from './Conversation_6.json';
 import conversationData_7 from './Conversation_7.json';
 import conversationData_8 from './Conversation_8.json';
+import pythonCodeExamples from './python-codes-25k.json';
 
 export interface TrainingData {
   input: string;
   output: string;
+}
+
+export interface CodeEditorState {
+  code: string;
+  language: string;
+  readOnly: boolean;
+  pythonOutput?: string;
 }
 
 interface ConversationEntry {
@@ -21,6 +29,11 @@ interface Intent {
   patterns: string[];
   responses: string[];
   context_set: string;
+}
+
+interface CodeExample {
+  instruction: string;
+  output: string;
 }
 
 function trimAndNormalize(entry: { input: string; output: string }): TrainingData {
@@ -50,7 +63,7 @@ export function initializeTrainingData(): TrainingData[] {
 
     const normalizedData = allData.map(trimAndNormalize);
 
-    const { trainingSet, testingSet } = splitData(normalizedData, 0.8);
+    const { trainingSet, testingSet } = splitData(normalizedData, 0.98);
     console.log(`Training set size: ${trainingSet.length}`);
     console.log(`Testing set size: ${testingSet.length}`);
 
@@ -209,4 +222,48 @@ function vectorizeSingleInput(input: string, vocabulary: string[]): number[] {
   });
   
   return vector;
+}
+
+// Add a function to generate code based on instructions
+export function generateCodeFromInstruction(instruction: string): CodeEditorState {
+  try {
+    // Type assertion for the imported JSON
+    const examples = pythonCodeExamples as CodeExample[];
+    
+    // Find matching code example
+    const matchingExample = examples.find((example) => 
+      example.instruction.toLowerCase().includes(instruction.toLowerCase())
+    );
+
+    if (matchingExample) {
+      // Extract the code from the output field
+      const code = matchingExample.output
+        .replace(/```python\n/, '')
+        .replace(/```$/, '')
+        .trim();
+
+      return {
+        language: 'python',
+        readOnly: true,
+        code,
+        pythonOutput: ''
+      };
+    }
+
+    // Return default state if no match found
+    return {
+      language: 'python',
+      readOnly: true,
+      code: "# No matching code example found for this instruction",
+      pythonOutput: ''
+    };
+  } catch (error) {
+    console.error('Error generating code:', error);
+    return {
+      language: 'python',
+      readOnly: true,
+      code: "# Error generating code example",
+      pythonOutput: ''
+    };
+  }
 }
