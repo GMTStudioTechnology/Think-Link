@@ -820,7 +820,11 @@ const ThinkLink: React.FC = () => {
                           </div>
                           {task.due && (
                             <div className="text-gray-300 text-sm">
-                              📅 Due: {new Date(task.due).toLocaleDateString()}
+                              📅 Due: {typeof task.due === 'string' 
+                                 ? new Date(task.due).toLocaleDateString() 
+                                 : task.due instanceof Date 
+                                   ? task.due.toLocaleDateString() 
+                                   : 'Invalid Date'}
                             </div>
                           )}
                           {task.context && (
@@ -1262,7 +1266,11 @@ const ThinkLink: React.FC = () => {
                                     {task.due && (
                                       <div className="mt-2 text-sm text-gray-300 flex items-center">
                                         <FiCalendar className="mr-2" size={14} />
-                                        {new Date(task.due).toLocaleDateString()}
+                                        {typeof task.due === 'string' 
+                                          ? new Date(task.due).toLocaleDateString() 
+                                          : task.due instanceof Date 
+                                            ? task.due.toLocaleDateString() 
+                                            : 'Invalid Date'}
                                       </div>
                                     )}
 
