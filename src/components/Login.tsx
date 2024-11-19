@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import logoDark from '../assets/GMTStudio_.png';
 import logoLight from '../assets/Gicon.png';
@@ -7,6 +7,7 @@ import { AuthContext } from '../context/AuthContext';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const { login } = useContext(AuthContext);
   const [error, setError] = useState('');
@@ -29,7 +30,8 @@ const Login: React.FC = () => {
 
     const success = await login(formData.email, formData.password);
     if (success) {
-      navigate('/thinklink');
+      const from = location.state?.from?.pathname || '/thinklink';
+      navigate(from);
     } else {
       setError('Invalid credentials');
     }
