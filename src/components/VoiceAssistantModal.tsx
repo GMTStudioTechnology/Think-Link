@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiMic, FiMicOff, FiX, FiCommand } from 'react-icons/fi';
 import { MazsAI } from './MazsAI';
+import { Tooltip } from 'react-tooltip';
 
 // Define proper types for Web Speech API
 interface SpeechRecognitionEvent {
@@ -35,8 +36,11 @@ interface SpeechRecognition extends EventTarget {
   onresult: (event: SpeechRecognitionEvent) => void;
   onerror: (event: SpeechRecognitionErrorEvent) => void;
   onend: () => void;
+  onstart: () => void;
   start: () => void;
   stop: () => void;
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+  removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
 }
 
 interface SpeechRecognitionConstructor {
@@ -63,9 +67,11 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [visualizerData, setVisualizerData] = useState<number[]>(Array(10).fill(50));
   const [isProcessing, setIsProcessing] = useState(false);
+  const [visualizerData, setVisualizerData] = useState<number[]>(Array(10).fill(10));
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [textInput, setTextInput] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   // Load voices on component mount
   useEffect(() => {
@@ -80,67 +86,64 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
 
   // Select a preferred voice
   const selectVoice = useCallback((): SpeechSynthesisVoice | null => {
-    // Preferences: English (GB/UK) male voice
     const preferredVoice = voices.find(
       (voice) =>
-        (voice.lang === 'en-GB' || voice.lang === 'en-UK') && 
+        (voice.lang === 'en-GB' || voice.lang === 'en-UK') &&
         voice.name.toLowerCase().includes('male')
     );
 
     if (preferredVoice) return preferredVoice;
 
-    // Fallback to any British voice
     const britishVoice = voices.find(
       (voice) => voice.lang === 'en-GB' || voice.lang === 'en-UK'
     );
 
     if (britishVoice) return britishVoice;
 
-    // Final fallback to the first available voice
     return voices.length > 0 ? voices[0] : null;
   }, [voices]);
 
   // Enhanced handleTranscript function
   const handleTranscript = useCallback(
     async (text: string) => {
+      if (!text.trim() || isProcessing) return;
+
       setIsProcessing(true);
+      setError(null);
+      console.log('Processing input:', text);
 
       try {
-        // Add await here since processInput might be async
         const response = await aiModel.processInput(text);
-        
-        // Add error handling
+
         if (!response) {
           console.error('No response from AI model');
+          setError('No response from AI model.');
           setIsProcessing(false);
           return;
         }
 
         if ('speechSynthesis' in window) {
-          // Cancel any ongoing speech before starting new one
           if (window.speechSynthesis.speaking) {
             window.speechSynthesis.cancel();
           }
 
           const utterance = new SpeechSynthesisUtterance(response);
-
           const voice = selectVoice();
           if (voice) {
             utterance.voice = voice;
           }
 
-          // Adjust speech parameters for more natural speech
-          utterance.rate = 1; // Slightly slower rate
-          utterance.pitch = 0.9; // Lower pitch for male voice
-          utterance.volume = 1; // Keep the same volume
+          utterance.rate = 0.9;
+          utterance.pitch = 0.9;
+          utterance.volume = 1;
 
-          // Handle natural pauses by adding punctuation
           const formattedResponse = response
-            .replace(/\. /g, '.\n') // Add newline after periods
-            .replace(/, /g, ',\n'); // Add newline after commas
+            .replace(/\. /g, '.\n')
+            .replace(/, /g, ',\n')
+            .replace(/\? /g, '?\n')
+            .replace(/! /g, '!\n');
           utterance.text = formattedResponse;
 
-          // Event listeners to manage speaking state
           utterance.onstart = () => {
             console.log('Started speaking');
             setIsSpeaking(true);
@@ -154,20 +157,23 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
 
           utterance.onerror = (event) => {
             console.error('Speech error:', event);
+            setError('Speech synthesis error.');
             setIsSpeaking(false);
             setIsProcessing(false);
           };
 
           window.speechSynthesis.speak(utterance);
         } else {
+          setError('Speech synthesis not supported in this browser.');
           setIsProcessing(false);
         }
       } catch (error) {
         console.error('Error processing input:', error);
+        setError('An error occurred while processing your request.');
         setIsProcessing(false);
       }
     },
-    [aiModel, selectVoice]
+    [aiModel, selectVoice, isProcessing]
   );
 
   // Animation Logic
@@ -187,11 +193,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
             const amplitude = isListening ? 40 : 30;
             const baseHeight = 30;
 
-            return (
-              baseHeight +
-              Math.sin(frequency) * amplitude +
-              (Math.random() * 20)
-            );
+            return baseHeight + Math.sin(frequency) * amplitude + Math.random() * 20;
           });
 
         setVisualizerData(newData);
@@ -224,9 +226,9 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
           }}
           className={`w-2 rounded-full ${
             isListening
-              ? 'bg-blue-500'
+              ? 'bg-blue-500 animate-pulse'
               : isSpeaking
-              ? 'bg-green-500'
+              ? 'bg-green-500 animate-pulse'
               : 'bg-gray-600'
           }`}
           style={{ minHeight: '4px' }}
@@ -235,51 +237,91 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     </div>
   );
 
-  // Load voices effect is already handled above
-
   // Speech Recognition Effect
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition: SpeechRecognition | null = null;
+    let silenceTimer: NodeJS.Timeout;
+
+    const setupRecognition = async () => {
+      const SpeechRecognition = await initializeSpeechRecognition();
+
       if (SpeechRecognition && isListening) {
-        const recognition = new SpeechRecognition() as SpeechRecognition;
-        recognition.continuous = true;
+        recognition = new SpeechRecognition() as SpeechRecognition;
+        recognition.continuous = true; // Keep listening until explicitly stopped
         recognition.interimResults = true;
         recognition.lang = 'en-US';
 
         let finalTranscript = '';
 
         recognition.onresult = (event: SpeechRecognitionEvent) => {
+          let interimTranscript = '';
+
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
-            
+
             if (event.results[i].isFinal) {
-              finalTranscript += transcript;
-              handleTranscript(finalTranscript);
-              finalTranscript = '';
+              finalTranscript = transcript; // Only keep the latest final transcript
+              
+              // Clear any existing silence timer
+              clearTimeout(silenceTimer);
+              
+              // Set a new silence timer
+              silenceTimer = setTimeout(() => {
+                if (finalTranscript.trim()) {
+                  setIsListening(false); // Stop listening
+                  handleTranscript(finalTranscript.trim()); // Process the final transcript
+                }
+              }, 1500); // Wait 1.5 seconds of silence before processing
+            } else {
+              interimTranscript = transcript;
+            }
+          }
+
+          if (interimTranscript) {
+            setTextInput(interimTranscript);
+          }
+        };
+
+        recognition.onstart = () => {
+          console.log('Speech recognition started');
+          setIsListening(true);
+          setError(null);
+        };
+
+        recognition.onend = () => {
+          console.log('Speech recognition ended');
+          if (isListening) {
+            // Restart recognition if we're still supposed to be listening
+            try {
+              recognition?.start();
+            } catch (error) {
+              console.error('Error restarting recognition:', error);
             }
           }
         };
 
-        recognition.onend = () => {
-          if (isListening) {
-            recognition.start();
-          }
-        };
-
-        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-          console.error('Speech recognition error:', event.error);
+        try {
+          recognition.start();
+        } catch (error) {
+          console.error('Error starting recognition:', error);
+          setError('Failed to start speech recognition.');
           setIsListening(false);
-          setIsProcessing(false);
-        };
-
-        recognition.start();
-        return () => {
-          recognition.stop();
-        };
+        }
       }
+    };
+
+    if (isListening) {
+      setupRecognition();
     }
+
+    return () => {
+      if (recognition) {
+        recognition.stop();
+      }
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+      }
+    };
   }, [isListening, handleTranscript]);
 
   // Test Conversation
@@ -304,9 +346,9 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     }
 
     // Adjust speech parameters
-    utterance.rate = 0.9; // Slightly slower rate
-    utterance.pitch = 0.9; // Lower pitch for male voice
-    utterance.volume = 0.9; // Keep the same volume
+    utterance.rate = 0.9;
+    utterance.pitch = 0.9;
+    utterance.volume = 0.9;
 
     // Handle natural pauses
     const formattedResponse = utterance.text
@@ -322,19 +364,66 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
       setIsSpeaking(false);
     };
 
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event);
+      setError('Speech synthesis error.');
+      setIsSpeaking(false);
+    };
+
     window.speechSynthesis.speak(utterance);
   };
 
   // Handle Modal Close
   const handleClose = () => {
-    // Cancel any ongoing speech
     window.speechSynthesis.cancel();
-    // Reset states
     setIsListening(false);
     setIsSpeaking(false);
     setIsProcessing(false);
-    // Close modal
+    setError(null);
     onClose();
+  };
+
+  // Initialize Speech Recognition
+  const initializeSpeechRecognition = async () => {
+    if (typeof window !== 'undefined') {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          console.error('Speech recognition not supported');
+          setError('Speech recognition not supported in this browser.');
+          return null;
+        }
+
+        return SpeechRecognition;
+      } catch (error) {
+        console.error('Error initializing speech recognition:', error);
+        setError('Microphone access denied or not available.');
+        return null;
+      }
+    }
+    return null;
+  };
+
+  // Handle Text Submit
+  const handleTextSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (textInput.trim()) {
+      await handleTranscript(textInput);
+      setTextInput('');
+    }
+  };
+
+  // Update the main control button click handler
+  const handleMicrophoneClick = () => {
+    if (isSpeaking || isProcessing) return;
+    
+    if (isListening) {
+      setIsListening(false); // This will stop the recognition
+    } else {
+      setIsListening(true); // This will start the recognition
+    }
   };
 
   return (
@@ -363,6 +452,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
               <button
                 onClick={handleClose}
                 className="p-1 hover:bg-gray-800 rounded-lg transition-colors"
+                aria-label="Close Voice Assistant"
               >
                 <FiX size={16} className="text-gray-400 hover:text-white" />
               </button>
@@ -395,26 +485,33 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                     ? 'Listening...'
                     : isSpeaking
                     ? 'Speaking...'
+                    : isProcessing
+                    ? 'Processing...'
+                    : error
+                    ? error
                     : 'Ready'}
                 </span>
               </div>
 
-              {/* Main Control Button */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsListening(!isListening)}
-                disabled={isProcessing}
-                className={`p-3 rounded-full ${
-                  isListening
-                    ? 'bg-gradient-to-r from-red-500 to-red-600'
-                    : 'bg-gradient-to-r from-blue-500 to-blue-600'
-                } text-white shadow-lg ${
-                  isProcessing ? 'opacity-50 cursor-not-allowed' : ''
-                } transition-all duration-300`}
-              >
-                {isListening ? <FiMicOff size={20} /> : <FiMic size={20} />}
-              </motion.button>
+              {/* Enhanced Main Control Button with Tooltip */}
+              <Tooltip content={isListening ? "Press to Stop" : "Press to Talk"} place="top">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleMicrophoneClick}
+                  disabled={isProcessing || isSpeaking}
+                  className={`p-4 rounded-full ${
+                    isListening
+                      ? 'bg-gradient-to-r from-red-500 to-red-600'
+                      : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                  } text-white shadow-lg ${
+                    isProcessing || isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
+                  } transition-all duration-300`}
+                  aria-label={isListening ? "Stop Listening" : "Start Listening"}
+                >
+                  {isListening ? <FiMicOff size={24} /> : <FiMic size={24} />}
+                </motion.button>
+              </Tooltip>
             </div>
 
             {/* Quick Test Buttons */}
@@ -434,6 +531,27 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Text Input Field */}
+            <form onSubmit={handleTextSubmit} className="mt-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-gray-800 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Type your message..."
+                  aria-label="Type your message"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded text-white text-sm transition-colors"
+                  aria-label="Send Message"
+                >
+                  Send
+                </button>
+              </div>
+            </form>
           </motion.div>
         </motion.div>
       )}
@@ -441,7 +559,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   );
 };
 
-// Add these declarations to extend the Window interface
+// Extend the Window interface
 declare global {
   interface Window {
     SpeechRecognition: SpeechRecognitionConstructor;
