@@ -820,11 +820,9 @@ const ThinkLink: React.FC = () => {
                           </div>
                           {task.due && (
                             <div className="text-gray-300 text-sm">
-                              📅 Due: {typeof task.due === 'string' 
-                                 ? new Date(task.due).toLocaleDateString() 
-                                 : task.due instanceof Date 
-                                   ? task.due.toLocaleDateString() 
-                                   : 'Invalid Date'}
+                              📅 Due: {task.due instanceof Date && !isNaN(task.due.getTime())
+                                ? task.due.toLocaleDateString()
+                                : 'Invalid Date'}
                             </div>
                           )}
                           {task.context && (
@@ -975,55 +973,6 @@ const ThinkLink: React.FC = () => {
   ];
 
   // Load data from localStorage on component mount
-  useEffect(() => {
-    const loadStoredData = () => {
-      try {
-        const storedData = localStorage.getItem('thinklink-data');
-        if (storedData) {
-          const parsedData: StoredData = JSON.parse(storedData, (key, value) => {
-            // Convert stored date strings back to Date objects
-            if (key === 'date' || key === 'start' || key === 'end') {
-              return new Date(value);
-            }
-            return value;
-          });
-
-          setTasks(parsedData.tasks || []);
-          setCommandHistory(parsedData.commandHistory || []);
-          setPomodoroHistory(parsedData.pomodoroHistory || []);
-          setCalendarEvents(parsedData.calendarEvents || []);
-          // Load other stored data as needed
-        }
-      } catch (error) {
-        console.error('Error loading stored data:', error);
-      }
-    };
-
-    loadStoredData();
-  }, []);
-
-  // Save data to localStorage whenever relevant state changes
-  useEffect(() => {
-    const saveData = () => {
-      try {
-        const dataToStore: StoredData = {
-          tasks,
-          commandHistory,
-          pomodoroHistory,
-          calendarEvents,
-          settings: {
-            pomodoroSettings,
-            // Add other settings
-          }
-        };
-        localStorage.setItem('thinklink-data', JSON.stringify(dataToStore));
-      } catch (error) {
-        console.error('Error saving data:', error);
-      }
-    };
-
-    saveData();
-  }, [tasks, commandHistory, pomodoroHistory, calendarEvents, pomodoroSettings]);
 
   // Add new functions for history management and data import/export
   const clearHistory = () => {
@@ -1266,11 +1215,9 @@ const ThinkLink: React.FC = () => {
                                     {task.due && (
                                       <div className="mt-2 text-sm text-gray-300 flex items-center">
                                         <FiCalendar className="mr-2" size={14} />
-                                        {typeof task.due === 'string' 
-                                          ? new Date(task.due).toLocaleDateString() 
-                                          : task.due instanceof Date 
-                                            ? task.due.toLocaleDateString() 
-                                            : 'Invalid Date'}
+                                        {task.due instanceof Date && !isNaN(task.due.getTime())
+                                          ? task.due.toLocaleDateString()
+                                          : 'Invalid Date'}
                                       </div>
                                     )}
 
