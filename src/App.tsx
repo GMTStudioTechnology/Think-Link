@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import Landing from './components/Landing';
 import Features from './components/Features';
 import Pricing from './components/Pricing';
@@ -7,6 +7,7 @@ import About from './components/About';
 import Signup from './components/Signup';
 import Login from './components/Login';
 import ThinkLink from './components/ThinkLink';
+import ErrorPage from './components/ErrorPage';
 import PrivateRoute from './components/PrivateRoute';
 import { AuthProvider } from './context/AuthContext';
 
@@ -15,7 +16,7 @@ const App: React.FC = () => {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<Landing />} errorElement={<ErrorPage />} />
           <Route path="/features" element={<Features />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/about" element={<About />} />
@@ -29,7 +30,7 @@ const App: React.FC = () => {
               </PrivateRoute>
             }
           />
-          {/* Add more routes as needed */}
+          <Route path="*" element={<ErrorPage />} />
         </Routes>
       </Router>
     </AuthProvider>

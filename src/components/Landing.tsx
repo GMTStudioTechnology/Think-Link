@@ -23,10 +23,7 @@ const Landing: React.FC = () => {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setDarkMode(true);
     }
-    setTimeout(() => {
-      setIsLoading(false);
-      console.log("Loading complete");
-    }, 500);
+    setTimeout(() => setIsLoading(false), 500);
   }, []);
 
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -102,16 +99,9 @@ const Landing: React.FC = () => {
               }`}>
                 About
               </Link>
-              <button
-                onClick={() => {
-                  // Navigate to login programmatically
-                  window.location.href = '/login';
-                }}
-                className="bg-blue-600 text-white px-6 py-2 rounded-full text-md font-medium 
-                           hover:bg-blue-700 transition-all duration-300 ease-in-out"
-              >
+              <Link to="/signup" className="bg-blue-600 text-white px-6 py-2 rounded-full text-md font-medium  hover:bg-blue-700 transition-all duration-300 ease-in-out">
                 Get Started
-              </button>
+              </Link>
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className={`p-2 rounded-full transition-colors duration-300 focus:outline-none 
@@ -155,11 +145,8 @@ const Landing: React.FC = () => {
                 We (GMTStudio) are developing a new AI tools, by using Mazs AI v1.5.0 Pato  and ThinkLink AI v1.0.0 Model.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-6 pt-8">
-                <Link to="/login" className="group flex items-center justify-center px-10 py-4 
-                                 bg-blue-600 text-white rounded-full text-lg font-medium
-                                 hover:bg-blue-700 transition-all duration-300 
-                                 hover:shadow-lg hover:shadow-blue-500/30 transform hover:scale-105">
+              <div  className="flex flex-col sm:flex-row gap-6 pt-8">
+                <Link to="/signup" className="group flex items-center justify-center px-10 py-4  bg-blue-600 text-white rounded-full text-lg font-medium hover:bg-blue-700 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/30 transform hover:scale-105">
                   Start Free Trial
                   <ChevronRight className="ml-3 w-6 h-6 group-hover:translate-x-2 transition-transform" />
                 </Link>
@@ -328,7 +315,7 @@ const Landing: React.FC = () => {
                 Join thousands of users who have already revolutionized their task management.
               </p>
               <div className="flex flex-col sm:flex-row gap-6 justify-center mt-12">
-                <Link to="/login" className={`inline-block px-12 py-4 rounded-full text-xl font-semibold 
+                <Link to="/signup" className={`inline-block px-12 py-4 rounded-full text-xl font-semibold 
                                            shadow-lg transition-transform transform hover:scale-110 ${
                                              darkMode
                                                ? 'bg-white text-blue-600 hover:bg-blue-100'
