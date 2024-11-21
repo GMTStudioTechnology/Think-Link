@@ -99,7 +99,7 @@ const Landing: React.FC = () => {
               }`}>
                 About
               </Link>
-              <Link to="/signup" className="bg-blue-600 text-white px-6 py-2 rounded-full text-md font-medium 
+              <Link to="/login" className="bg-blue-600 text-white px-6 py-2 rounded-full text-md font-medium 
                                            hover:bg-blue-700 transition-all duration-300 ease-in-out">
                 Get Started
               </Link>
@@ -147,7 +147,7 @@ const Landing: React.FC = () => {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-6 pt-8">
-                <Link to="/signup" className="group flex items-center justify-center px-10 py-4 
+                <Link to="/login" className="group flex items-center justify-center px-10 py-4 
                                  bg-blue-600 text-white rounded-full text-lg font-medium
                                  hover:bg-blue-700 transition-all duration-300 
                                  hover:shadow-lg hover:shadow-blue-500/30 transform hover:scale-105">
@@ -319,7 +319,7 @@ const Landing: React.FC = () => {
                 Join thousands of users who have already revolutionized their task management.
               </p>
               <div className="flex flex-col sm:flex-row gap-6 justify-center mt-12">
-                <Link to="/signup" className={`inline-block px-12 py-4 rounded-full text-xl font-semibold 
+                <Link to="/login" className={`inline-block px-12 py-4 rounded-full text-xl font-semibold 
                                            shadow-lg transition-transform transform hover:scale-110 ${
                                              darkMode
                                                ? 'bg-white text-blue-600 hover:bg-blue-100'
