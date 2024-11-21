@@ -23,7 +23,10 @@ const Landing: React.FC = () => {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setDarkMode(true);
     }
-    setTimeout(() => setIsLoading(false), 500);
+    setTimeout(() => {
+      setIsLoading(false);
+      console.log("Loading complete");
+    }, 500);
   }, []);
 
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -99,10 +102,16 @@ const Landing: React.FC = () => {
               }`}>
                 About
               </Link>
-              <Link to="/login" className="bg-blue-600 text-white px-6 py-2 rounded-full text-md font-medium 
-                                           hover:bg-blue-700 transition-all duration-300 ease-in-out">
+              <button
+                onClick={() => {
+                  // Navigate to login programmatically
+                  window.location.href = '/login';
+                }}
+                className="bg-blue-600 text-white px-6 py-2 rounded-full text-md font-medium 
+                           hover:bg-blue-700 transition-all duration-300 ease-in-out"
+              >
                 Get Started
-              </Link>
+              </button>
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className={`p-2 rounded-full transition-colors duration-300 focus:outline-none 
