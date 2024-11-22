@@ -43,7 +43,15 @@ function trimAndNormalize(entry: { input: string; output: string }): TrainingDat
   };
 }
 
+// Add a singleton pattern to cache training data
+let cachedTrainingData: TrainingData[] | null = null;
+
 export function initializeTrainingData(): TrainingData[] {
+  // Return cached data if available
+  if (cachedTrainingData) {
+    return cachedTrainingData;
+  }
+
   try {
     const data1 = loadConversationData(conversationData);
     const data2 = loadTrainingData(conversationData_2);
@@ -62,8 +70,11 @@ export function initializeTrainingData(): TrainingData[] {
     ];
 
     const normalizedData = allData.map(trimAndNormalize);
-
     const { trainingSet, testingSet } = splitData(normalizedData, 0.98);
+    
+    // Cache the training set
+    cachedTrainingData = trainingSet;
+    
     console.log(`Training set size: ${trainingSet.length}`);
     console.log(`Testing set size: ${testingSet.length}`);
 
@@ -266,4 +277,9 @@ export function generateCodeFromInstruction(instruction: string): CodeEditorStat
       pythonOutput: ''
     };
   }
+}
+
+// Add method to clear cache if needed
+export function clearTrainingDataCache(): void {
+  cachedTrainingData = null;
 }

@@ -112,7 +112,7 @@ const ChatPage: React.FC = () => {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder="Type your message..."
+            placeholder="Chat with Mazs AI v1.5 anatra "
             className="flex-1 bg-transparent text-white placeholder-white/50 outline-none text-sm md:text-base"
           />
           <button className="p-1.5 md:p-2 text-white/80 hover:text-white transition hidden md:block">

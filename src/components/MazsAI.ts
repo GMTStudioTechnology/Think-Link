@@ -6,15 +6,32 @@ interface NeuralNetworkLayer {
 }
 
 export class MazsAI {
+  private static sharedVocabulary: Set<string> | null = null;
+  private static sharedTrainingData: TrainingData[] | null = null;
+  
   private vocabulary: Set<string>;
   private layers: NeuralNetworkLayer[];
   private trainingData: TrainingData[];
 
   constructor() {
-    this.vocabulary = new Set<string>();
+    // Initialize or reuse shared data
+    if (!MazsAI.sharedVocabulary) {
+      MazsAI.sharedVocabulary = new Set<string>();
+    }
+    if (!MazsAI.sharedTrainingData) {
+      MazsAI.sharedTrainingData = initializeTrainingData();
+    }
+    
+    this.vocabulary = MazsAI.sharedVocabulary;
+    this.trainingData = MazsAI.sharedTrainingData;
     this.layers = [];
-    this.trainingData = initializeTrainingData();
     this.initializeNetwork();
+  }
+
+  // Add static method to clear cached data if needed
+  public static clearCache(): void {
+    MazsAI.sharedVocabulary = null;
+    MazsAI.sharedTrainingData = null;
   }
 
   private initializeNetwork(): void {
@@ -174,6 +191,8 @@ export class MazsAI {
   // Method to add new training data
   public learn(input: string, output: string): void {
     this.trainingData.push({ input, output });
+    // Tokenize the new input to update shared vocabulary
+    this.tokenize(input);
   }
 
   // Method to get model statistics
