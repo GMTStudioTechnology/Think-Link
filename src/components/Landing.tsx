@@ -10,10 +10,12 @@ import {
   Star,
   Shield,
   Person,
+  Play,
 } from '@gravity-ui/icons';
 import logoDark from '../assets/GMTStudio_.png';
 import logoLight from '../assets/Gicon.png';
 import ThinkLink from '../assets/ThinkLink_1.png';
+import MazsAI from '../assets/MazsAI.png';
 
 const Landing: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -117,73 +119,156 @@ const Landing: React.FC = () => {
         </div>
       </nav>
 
-      <section className="relative pt-40 pb-24 px-6 overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="lg:grid lg:grid-cols-2 gap-24 items-center">
-            <div className="space-y-10">
-              <div className="animate-float inline-flex items-center px-6 py-3 rounded-full 
-                            bg-gradient-to-r from-blue-500 to-purple-600 
-                            backdrop-blur-md shadow-lg transition-transform transform hover:scale-105">
-                <Clock className="w-6 h-6 text-white" />
-                <span className="ml-4 text-lg font-semibold text-white">
-                  Boost Your Productivity
+      {/* Enhanced Hero Section - Centered on first viewport */}
+      <section className="relative min-h-screen flex items-center justify-center px-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto w-full">
+          {/* Floating Gradient Orbs */}
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/30 rounded-full 
+                         mix-blend-multiply filter blur-[128px] animate-float" />
+          <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-purple-500/30 rounded-full 
+                         mix-blend-multiply filter blur-[128px] animate-float-delayed" />
+
+          {/* Hero Content */}
+          <div className="relative">
+            {/* Badge */}
+            <div className="flex justify-center mb-8">
+              <div className="inline-flex items-center px-4 py-2 rounded-full 
+                            bg-gradient-to-r from-blue-500/5 to-purple-500/5 
+                            backdrop-blur-sm border border-blue-500/10
+                            shadow-lg shadow-blue-500/10">
+                <div className="animate-pulse w-2 h-2 rounded-full bg-blue-500 mr-3" />
+                <span className={`text-sm font-medium ${
+                  darkMode ? 'text-blue-400' : 'text-blue-600'
+                }`}>
+                  Introducing ThinkLink & Mazs AI
                 </span>
               </div>
-              
-              <h1 className={`animate-fade-in text-6xl lg:text-7xl font-extrabold tracking-tight leading-tight ${
-                darkMode ? 'text-white' : 'text-black'
-              }`}>
-                Transform thoughts into
-                <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-                  {' '}actionable tasks
+            </div>
+
+            {/* Main Headline */}
+            <div className="text-center space-y-8 mb-16">
+              <h1 className={`text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight leading-none 
+                             ${darkMode ? 'text-white' : 'text-black'}`}>
+                <span className="block mb-4">Experience the future of</span>
+                <span className="relative">
+                  <span className="relative z-10 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 
+                                 bg-clip-text text-transparent animate-gradient-x">
+                    AI-powered productivity
+                  </span>
+                  <div className="absolute inset-x-0 -bottom-2 h-1/2 bg-gradient-to-r from-blue-500/10 
+                                via-purple-500/10 to-blue-500/10 blur-sm" />
                 </span>
               </h1>
               
-              <p className={`text-xl lg:text-2xl leading-relaxed max-w-2xl ${
-                darkMode ? 'text-gray-300' : 'text-gray-700'
+              <p className={`text-xl lg:text-2xl max-w-3xl mx-auto ${
+                darkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                We (GMTStudio) are developing a new AI tools, by using Mazs AI v1.5.0 Pato  and ThinkLink AI v1.0.0 Model.
+                Seamlessly combine the power of ThinkLink's task management with Mazs AI's intelligent assistance
               </p>
 
-              <div  className="flex flex-col sm:flex-row gap-6 pt-8">
-                <Link to="/signup" className="group flex items-center justify-center px-10 py-4  bg-blue-600 text-white rounded-full text-lg font-medium hover:bg-blue-700 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/30 transform hover:scale-105">
-                  Start Free Trial
-                  <ChevronRight className="ml-3 w-6 h-6 group-hover:translate-x-2 transition-transform" />
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8">
+                <Link to="/signup" 
+                      className="group relative inline-flex items-center justify-center px-8 py-4 
+                               overflow-hidden rounded-full bg-blue-600 text-white transition-all duration-300
+                               hover:bg-blue-700 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25">
+                  <div className="absolute inset-0 w-0 bg-gradient-to-r from-blue-400 to-purple-500 
+                                transition-all duration-500 ease-out group-hover:w-full" />
+                  <span className="relative flex items-center">
+                    Get Started Free
+                    <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </span>
                 </Link>
-                <Link to="/demo" className={`flex items-center justify-center px-10 py-4 
-                                  rounded-full text-lg font-medium transition-transform transform hover:scale-105
-                                  ${darkMode 
-                                    ? 'bg-gray-800 text-white hover:bg-gray-700 shadow-md' 
-                                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200 shadow-md'
-                                  }`}>
-                  Watch Demo
+                
+                <Link to="/demo" 
+                      className={`group inline-flex items-center justify-center px-8 py-4 rounded-full 
+                                transition-all duration-300 hover:scale-105
+                                ${darkMode 
+                                  ? 'bg-white/10 text-white hover:bg-white/20' 
+                                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                                }`}>
+                  <span className="flex items-center">
+                    Watch Demo
+                    <Play className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </span>
                 </Link>
               </div>
             </div>
 
-            <div className="relative group mt-12 lg:mt-0">
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-400 to-purple-500 
-                            rounded-3xl blur-3xl opacity-30 group-hover:opacity-40 
-                            transition-all duration-700 animate-pulse"></div>
-              <div className={`relative rounded-3xl p-12 backdrop-blur-lg transition-colors duration-700 
-                            border ${darkMode ? 'border-gray-700' : 'border-gray-200'}
-                            ${darkMode ? 'bg-gray-900' : 'bg-white'} shadow-2xl`}>
-                <div className="aspect-w-16 aspect-h-9 rounded-xl shadow-xl overflow-hidden">
-                  <img
-                    src={ThinkLink}
-                    alt="ThinkLink App Screenshot"
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
-                  />
+          </div>
+        </div>
+      </section>
+
+      {/* Product Showcase Section - Starts after first viewport */}
+      <section className="relative py-32 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="relative grid lg:grid-cols-2 gap-8 items-stretch">
+            {/* ThinkLink Preview */}
+            <div className={`group relative rounded-3xl p-8 ${
+              darkMode ? 'bg-gray-900/50' : 'bg-white/50'
+            } backdrop-blur-xl border border-gray-200/10 hover:scale-[1.02] transition-all duration-500`}>
+              <div className="absolute inset-0 bg-gradient-to-tr from-blue-400/10 to-purple-500/10 
+                            rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative space-y-6">
+                <div className="flex items-center space-x-4">
+                  <img src={ThinkLink} alt="ThinkLink" 
+                       className="w-12 h-12 rounded-xl shadow-lg" />
+                  <h3 className={`text-2xl font-semibold ${
+                    darkMode ? 'text-white' : 'text-black'
+                  }`}>
+                    ThinkLink
+                  </h3>
                 </div>
+                <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Transform your thoughts into actionable tasks with our intelligent task management system
+                </p>
+                <img src={ThinkLink} alt="ThinkLink Interface"
+                     className="w-full rounded-2xl shadow-2xl transform group-hover:scale-[1.02] 
+                              transition-transform duration-500" />
+              </div>
+            </div>
+
+            {/* Mazs AI Preview */}
+            <div className={`group relative rounded-3xl p-8 ${
+              darkMode ? 'bg-gray-900/50' : 'bg-white/50'
+            } backdrop-blur-xl border border-gray-200/10 hover:scale-[1.02] transition-all duration-500`}>
+              <div className="absolute inset-0 bg-gradient-to-tr from-green-400/10 to-teal-500/10 
+                            rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative space-y-6">
+                <div className="flex items-center space-x-4">
+                  <img src={MazsAI} alt="Mazs AI" 
+                       className="w-12 h-12 rounded-xl shadow-lg" />
+                  <h3 className={`text-2xl font-semibold ${
+                    darkMode ? 'text-white' : 'text-black'
+                  }`}>
+                    Mazs AI
+                  </h3>
+                </div>
+                <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Your intelligent AI assistant for natural conversations and task automation
+                </p>
+                <img src={MazsAI} alt="Mazs AI Interface"
+                     className="w-full rounded-2xl shadow-2xl transform group-hover:scale-[1.02] 
+                              transition-transform duration-500" />
               </div>
             </div>
           </div>
         </div>
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-0 -left-4 w-72 h-72 bg-blue-600 rounded-full mix-blend-multiply 
-                         filter blur-xl animate-blob" />
-          <div className="absolute top-0 -right-4 w-72 h-72 bg-purple-600 rounded-full mix-blend-multiply 
-                         filter blur-xl animate-blob animation-delay-2000" />
+      </section>
+
+      {/* Features Comparison Section */}
+      <section className={`py-32 ${darkMode ? 'bg-black' : 'bg-white'}`}>
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-20">
+            <h2 className={`text-5xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-black'}`}>
+              Two tools, infinite possibilities
+            </h2>
+            <p className={`text-xl ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              See how ThinkLink and Mazs AI work together to supercharge your productivity
+            </p>
+          </div>
+          
+          {/* Add your features grid here */}
         </div>
       </section>
 
@@ -397,7 +482,17 @@ const features = [
     icon: <Rocket className="w-6 h-6 text-blue-600" />,
     title: "Seamless Integration",
     description: "Connect with your favorite tools and enhance your workflow."
-  }
+  },
+  {
+    icon: <Gear className="w-6 h-6 text-green-600" />,
+    title: "Intelligent Conversations",
+    description: "Engage with Mazs AI for intelligent task management and queries."
+  },
+  {
+    icon: <CircleCheck className="w-6 h-6 text-green-600" />,
+    title: "Real-Time Assistance",
+    description: "Get instant support and insights from Mazs AI to boost your productivity."
+  },
 ];
 
 const stats = [

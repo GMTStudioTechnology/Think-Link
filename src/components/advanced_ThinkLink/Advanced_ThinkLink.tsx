@@ -136,7 +136,7 @@ const Advanced_ThinkLink: React.FC = () => {
             <div className="space-y-3">
               <h2 className="text-white/90 text-lg font-semibold mb-6">Categories</h2>
               {[
-                { icon: <FaceRobot />, label: 'Chat with MazsAI', path: 'chat' as PagePath },
+                { icon: <FaceRobot />, label: 'MazsAI Chatbot', path: 'chat' as PagePath },
                 { icon: <PencilToSquare />, label: 'ThinkLink Tasks', path: 'tasks' as PagePath },
                 { icon: <Video />, label: 'Discover', path: 'discover' as PagePath },
                 { icon: <GearDot />, label: 'Settings', path: 'settings' as PagePath },
