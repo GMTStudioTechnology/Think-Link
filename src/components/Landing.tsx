@@ -50,6 +50,9 @@ const Landing: React.FC = () => {
     hover: 'hover:bg-zinc-800'
   };
 
+  // Add mobile menu state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className={`min-h-screen transition-colors duration-700 ${
       darkMode ? darkThemeColors.background : 'bg-white'
@@ -71,19 +74,23 @@ const Landing: React.FC = () => {
         </div>
       </div>
 
+      {/* Updated Navigation */}
       <nav className={`fixed w-full backdrop-blur-xl z-40 transition-all duration-700 
         ${darkMode ? 'bg-black/90 border-b border-zinc-800' : 'bg-white/90'}
         ${scrollProgress > 10 ? 'py-2' : 'py-4'}`}>
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <div className="flex justify-between items-center h-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+          <div className="flex justify-between items-center h-16 md:h-20">
+            {/* Logo */}
             <div className="flex items-center">
               <img 
                 src={darkMode ? logoDark : logoLight}
                 alt="ThinkLink Logo" 
-                className="w-12 h-12" 
+                className="w-8 h-8 md:w-12 md:h-12" 
               />
-              <span className="ml-3 text-2xl font-semibold tracking-tight">ThinkLink</span>
+              <span className="ml-2 md:ml-3 text-xl md:text-2xl font-semibold tracking-tight">ThinkLink</span>
             </div>
+
+            {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               <Link to="/features" className={`text-md font-medium hover:text-blue-500 transition-colors duration-300 ${
                 darkMode ? 'text-gray-300' : 'text-gray-700'
@@ -114,12 +121,67 @@ const Landing: React.FC = () => {
                 {darkMode ? '🌙' : '☀️'}
               </button>
             </div>
+
+            {/* Mobile Menu Button */}
+            <div className="flex md:hidden items-center">
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className={`p-2 rounded-lg ${
+                  darkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}
+              >
+                <span className="sr-only">Open menu</span>
+                {/* Hamburger icon */}
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d={mobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Menu */}
+          <div className={`md:hidden transition-all duration-300 ${
+            mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+          } overflow-hidden`}>
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              <Link to="/features" 
+                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                      darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                    }`}>
+                Features
+              </Link>
+              <Link to="/pricing" 
+                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                      darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                    }`}>
+                Pricing
+              </Link>
+              <Link to="/about" 
+                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                      darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                    }`}>
+                About
+              </Link>
+              <Link to="/signup" 
+                    className="block px-3 py-2 rounded-md text-base font-medium bg-blue-600 text-white">
+                Get Started
+              </Link>
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`w-full text-left px-3 py-2 rounded-md text-base font-medium ${
+                  darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {darkMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
+              </button>
+            </div>
           </div>
         </div>
       </nav>
 
-      {/* Enhanced Hero Section - Centered on first viewport */}
-      <section className="relative min-h-screen flex items-center justify-center px-6 overflow-hidden">
+      {/* Updated Hero Section */}
+      <section className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 overflow-hidden">
         <div className="max-w-7xl mx-auto w-full">
           {/* Floating Gradient Orbs */}
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/30 rounded-full 
@@ -129,14 +191,14 @@ const Landing: React.FC = () => {
 
           {/* Hero Content */}
           <div className="relative">
-            {/* Badge */}
-            <div className="flex justify-center mb-8">
-              <div className="inline-flex items-center px-4 py-2 rounded-full 
+            {/* Updated Badge */}
+            <div className="flex justify-center mb-6 md:mb-8">
+              <div className="inline-flex items-center px-3 py-1 md:px-4 md:py-2 rounded-full 
                             bg-gradient-to-r from-blue-500/5 to-purple-500/5 
                             backdrop-blur-sm border border-blue-500/10
                             shadow-lg shadow-blue-500/10">
-                <div className="animate-pulse w-2 h-2 rounded-full bg-blue-500 mr-3" />
-                <span className={`text-sm font-medium ${
+                <div className="animate-pulse w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-blue-500 mr-2 md:mr-3" />
+                <span className={`text-xs md:text-sm font-medium ${
                   darkMode ? 'text-blue-400' : 'text-blue-600'
                 }`}>
                   Introducing ThinkLink & Mazs AI
@@ -144,29 +206,27 @@ const Landing: React.FC = () => {
               </div>
             </div>
 
-            {/* Main Headline */}
-            <div className="text-center space-y-8 mb-16">
-              <h1 className={`text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight leading-none 
+            {/* Updated Headline */}
+            <div className="text-center space-y-6 md:space-y-8 mb-12 md:mb-16">
+              <h1 className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight leading-none 
                              ${darkMode ? 'text-white' : 'text-black'}`}>
-                <span className="block mb-4">Experience the future of</span>
+                <span className="block mb-2 md:mb-4">Experience the future of</span>
                 <span className="relative">
                   <span className="relative z-10 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 
                                  bg-clip-text text-transparent animate-gradient-x">
                     AI-powered productivity
                   </span>
-                  <div className="absolute inset-x-0 -bottom-2 h-1/2 bg-gradient-to-r from-blue-500/10 
-                                via-purple-500/10 to-blue-500/10 blur-sm" />
                 </span>
               </h1>
               
-              <p className={`text-xl lg:text-2xl max-w-3xl mx-auto ${
+              <p className={`text-lg sm:text-xl lg:text-2xl max-w-3xl mx-auto px-4 ${
                 darkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
                 Seamlessly combine the power of ThinkLink's task management with Mazs AI's intelligent assistance
               </p>
 
-              {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8">
+              {/* Updated CTA Buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 pt-6 sm:pt-8">
                 <Link to="/signup" 
                       className="group relative inline-flex items-center justify-center px-8 py-4 
                                overflow-hidden rounded-full bg-blue-600 text-white transition-all duration-300
@@ -198,10 +258,10 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* Product Showcase Section - Starts after first viewport */}
-      <section className="relative py-32 px-6">
+      {/* Product Showcase Section */}
+      <section className="relative py-16 md:py-32 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="relative grid lg:grid-cols-2 gap-8 items-stretch">
+          <div className="relative grid md:grid-cols-2 gap-6 md:gap-8 items-stretch">
             {/* ThinkLink Preview */}
             <div className={`group relative rounded-3xl p-8 ${
               darkMode ? 'bg-gray-900/50' : 'bg-white/50'
