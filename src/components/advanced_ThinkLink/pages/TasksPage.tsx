@@ -74,9 +74,9 @@ const TasksPage: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4 md:space-y-6">
       {/* Task Stats Section */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
         {[
           { label: 'Total Tasks', value: tasks.length, color: 'from-blue-500 to-indigo-600' },
           { label: 'Completed', value: tasks.filter(t => t.status === 'done').length, color: 'from-green-500 to-emerald-600' },
@@ -86,35 +86,35 @@ const TasksPage: React.FC = () => {
           <motion.div
             key={index}
             style={glassStyle}
-            className={`p-4 rounded-2xl bg-gradient-to-br ${stat.color}`}
+            className={`p-3 md:p-4 rounded-2xl bg-gradient-to-br ${stat.color}`}
             whileHover={{ scale: 1.02 }}
           >
-            <h3 className="text-white/70 text-sm">{stat.label}</h3>
-            <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
+            <h3 className="text-white/70 text-xs md:text-sm">{stat.label}</h3>
+            <p className="text-xl md:text-2xl font-bold text-white mt-1">{stat.value}</p>
           </motion.div>
         ))}
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex gap-6">
+      <div className="flex-1 flex flex-col md:flex-row gap-4 md:gap-6">
         {/* Tasks List */}
         <motion.div
           style={glassStyle}
-          className="flex-1 p-6 overflow-hidden flex flex-col h-[calc(100vh-24rem)]"
+          className="flex-1 p-4 md:p-6 overflow-hidden flex flex-col h-[calc(100vh-24rem)] md:h-[calc(100vh-24rem)] sm:h-[calc(100vh-32rem)]"
         >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-white">Tasks Overview</h2>
+          <div className="flex items-center justify-between mb-4 md:mb-6">
+            <h2 className="text-lg md:text-xl font-semibold text-white">Tasks Overview</h2>
             <div className="flex space-x-2">
-              <button className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all">
-                <FiCalendar className="w-5 h-5" />
+              <button className="p-2 md:px-4 md:py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all">
+                <FiCalendar className="w-4 h-4 md:w-5 md:h-5" />
               </button>
-              <button className="px-4 py-2 rounded-xl bg-indigo-500/80 hover:bg-indigo-500 text-white transition-all">
-                + New Task
+              <button className="p-2 md:px-4 md:py-2 rounded-xl bg-indigo-500/80 hover:bg-indigo-500 text-white transition-all text-sm md:text-base">
+                + New
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-3 pr-4 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 pr-2 md:pr-4 custom-scrollbar">
             {tasks.map((task) => (
               <motion.div
                 key={task.id}
@@ -122,9 +122,9 @@ const TasksPage: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 style={glassStyle}
-                className="p-4 hover:bg-white/5 transition-all group"
+                className="p-3 md:p-4 hover:bg-white/5 transition-all group"
               >
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3 md:space-x-4">
                   <button 
                     className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
                       ${task.status === 'done'
@@ -135,33 +135,33 @@ const TasksPage: React.FC = () => {
                     {task.status === 'done' && <FiCheck className="text-white" size={14} />}
                   </button>
                   
-                  <div className="flex-1">
-                    <h4 className={`font-medium text-white/90 ${task.status === 'done' ? 'line-through text-white/50' : ''}`}>
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`font-medium text-sm md:text-base text-white/90 truncate ${task.status === 'done' ? 'line-through text-white/50' : ''}`}>
                       {task.content}
                     </h4>
-                    <div className="flex items-center space-x-4 mt-2">
-                      <span className={`px-2 py-1 rounded-lg text-xs
+                    <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2">
+                      <span className={`px-2 py-0.5 md:py-1 rounded-lg text-xs
                         ${task.priority === 'high' ? 'bg-red-500/20 text-red-300' :
                           task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
                           'bg-blue-500/20 text-blue-300'}`}>
                         {task.priority}
                       </span>
                       {task.due && (
-                        <div className="flex items-center space-x-1 text-white/50 text-sm">
+                        <div className="flex items-center space-x-1 text-white/50 text-xs md:text-sm">
                           <FiCalendar size={12} />
                           <span>{task.due.toLocaleDateString()}</span>
                         </div>
                       )}
-                      <span className="text-white/30 text-sm">{task.category}</span>
+                      <span className="text-white/30 text-xs md:text-sm hidden sm:inline">{task.category}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-all">
-                      <FiEdit2 size={16} />
+                  <div className="flex items-center space-x-1 md:space-x-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-all">
+                      <FiEdit2 size={14} className="md:w-4 md:h-4" />
                     </button>
-                    <button className="p-2 hover:bg-red-500/20 rounded-lg text-white/70 hover:text-red-400 transition-all">
-                      <FiTrash2 size={16} />
+                    <button className="p-1.5 md:p-2 hover:bg-red-500/20 rounded-lg text-white/70 hover:text-red-400 transition-all">
+                      <FiTrash2 size={14} className="md:w-4 md:h-4" />
                     </button>
                   </div>
                 </div>
@@ -173,7 +173,7 @@ const TasksPage: React.FC = () => {
         {/* Chat Assistant */}
         <motion.div
           style={glassStyle}
-          className="w-96 flex flex-col"
+          className="w-full md:w-96 flex flex-col"
         >
           <div className="p-6 border-b border-white/10">
             <h2 className="text-xl font-semibold text-white">Task Assistant</h2>

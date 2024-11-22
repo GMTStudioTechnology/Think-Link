@@ -54,8 +54,8 @@ const ChatPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-17rem)]">
-      <div className="flex-1 overflow-y-auto mb-4 pr-4">
+    <div className="flex flex-col h-[calc(100vh-17rem)] md:h-[calc(100vh-17rem)] sm:h-[calc(100vh-8rem)]">
+      <div className="flex-1 overflow-y-auto mb-4 pr-4 md:pr-4 sm:pr-2">
         <AnimatePresence>
           {messages.map((message) => (
             <motion.div
@@ -63,10 +63,10 @@ const ChatPage: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
+              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} mb-2 md:mb-4`}
             >
               <div
-                className={`max-w-[70%] p-4 rounded-2xl ${
+                className={`max-w-[85%] md:max-w-[70%] p-3 md:p-4 rounded-2xl ${
                   message.sender === 'user'
                     ? 'bg-blue-600 text-white rounded-br-sm'
                     : 'bg-white/10 text-white rounded-bl-sm'
@@ -99,12 +99,12 @@ const ChatPage: React.FC = () => {
       </div>
 
       {/* Input Area */}
-      <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-lg border border-white/10">
-        <div className="flex items-center space-x-4">
-          <button className="p-2 text-white/80 hover:text-white transition">
+      <div className="bg-white/10 p-2 md:p-4 rounded-2xl backdrop-blur-lg border border-white/10">
+        <div className="flex items-center space-x-2 md:space-x-4">
+          <button className="p-1.5 md:p-2 text-white/80 hover:text-white transition hidden md:block">
             <Picture className="w-5 h-5" />
           </button>
-          <button className="p-2 text-white/80 hover:text-white transition">
+          <button className="p-1.5 md:p-2 text-white/80 hover:text-white transition hidden md:block">
             <Paperclip className="w-5 h-5" />
           </button>
           <input
@@ -113,16 +113,16 @@ const ChatPage: React.FC = () => {
             onChange={(e) => setInputText(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
             placeholder="Type your message..."
-            className="flex-1 bg-transparent text-white placeholder-white/50 outline-none"
+            className="flex-1 bg-transparent text-white placeholder-white/50 outline-none text-sm md:text-base"
           />
-          <button className="p-2 text-white/80 hover:text-white transition">
+          <button className="p-1.5 md:p-2 text-white/80 hover:text-white transition hidden md:block">
             <Microphone className="w-5 h-5" />
           </button>
           <button
             onClick={handleSendMessage}
-            className="p-2 bg-transparent rounded-xl text-white/80 hover:text-white  transition"
+            className="p-1.5 md:p-2 bg-transparent rounded-xl text-white/80 hover:text-white transition"
           >
-            <PaperPlane  className="w-5 h-5" />
+            <PaperPlane className="w-5 h-5" />
           </button>
         </div>
       </div>
