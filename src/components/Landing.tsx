@@ -5,7 +5,6 @@ import {
   Gear, 
   Rocket, 
   ChevronRight,
-  Clock,
   ArrowRight,
   Star,
   Shield,
