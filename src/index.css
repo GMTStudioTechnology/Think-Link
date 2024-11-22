@@ -52,3 +52,8 @@
   -webkit-overflow-scrolling: touch;
 }
 
+@layer components {
+  .glass {
+    @apply bg-white/5 backdrop-blur-lg border border-white/10;
+  }
+}

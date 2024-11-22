@@ -6,10 +6,10 @@ import Pricing from './components/Pricing';
 import About from './components/About';
 import Signup from './components/Signup';
 import Login from './components/Login';
-import ThinkLink from './components/ThinkLink';
 import ErrorPage from './components/ErrorPage';
 import PrivateRoute from './components/PrivateRoute';
 import { AuthProvider } from './context/AuthContext';
+import Advanced_ThinkLink from './components/advanced_ThinkLink/Advanced_ThinkLink';
 
 const App: React.FC = () => {
   return (
@@ -22,11 +22,12 @@ const App: React.FC = () => {
           <Route path="/about" element={<About />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/advanced-thinklink" element={<Advanced_ThinkLink />} />
           <Route
-            path="/thinklink"
+            path="/advanced-thinklink"
             element={
               <PrivateRoute>
-                <ThinkLink />
+                <Advanced_ThinkLink />
               </PrivateRoute>
             }
           />

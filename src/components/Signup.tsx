@@ -30,7 +30,7 @@ const Signup: React.FC = () => {
 
     const success = await login(formData.email, formData.password);
     if (success) {
-      const from = location.state?.from?.pathname || '/thinklink';
+      const from = location.state?.from?.pathname || '/advanced-thinklink';
       navigate(from);
     } else {
       setError('Invalid credentials');
