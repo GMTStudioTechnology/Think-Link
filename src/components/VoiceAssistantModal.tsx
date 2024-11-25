@@ -4,7 +4,8 @@ import { FiMic, FiMicOff, FiX, FiCommand, FiActivity } from 'react-icons/fi';
 import { MazsAI } from './MazsAI';
 import { Tooltip } from 'react-tooltip';
 import { findBestMatch, TrainingData } from '../data/NLP';
-
+import { PaperPlane } from '@gravity-ui/icons';
+import { BackgroundGradient } from './advanced_ThinkLink/BackgroundGradient';
 // Define proper types for Web Speech API
 interface SpeechRecognitionEvent {
   resultIndex: number;
@@ -61,6 +62,20 @@ interface VoiceAssistantModalProps {
   onCommand: (command: string) => void;
   aiModel: MazsAI;
   trainingData: TrainingData[];
+  customStyles?: {
+    modalBackground?: string;
+    modalContent?: string;
+    text?: string;
+    accent?: string;
+    button?: string;
+    input?: string;
+  };
+  features?: {
+    enableVisualizer?: boolean;
+    enableNLPMode?: boolean;
+    enableTestButtons?: boolean;
+    showStatus?: boolean;
+  };
 }
 
 const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
@@ -68,6 +83,8 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   onClose,
   aiModel,
   trainingData,
+  customStyles,
+  features,
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -441,152 +458,158 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed bottom-4 right-4 z-50"
+          className={`fixed inset-0 z-50 flex items-center justify-center
+            ${customStyles?.modalBackground || ''}`}
         >
+          <BackgroundGradient />
+          
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-gradient-to-b from-gray-900 to-black border border-gray-800 rounded-2xl p-4 w-[400px] shadow-xl"
+            className={`relative w-full max-w-2xl mx-4 
+              bg-white/5 backdrop-blur-md
+              border border-white/10 rounded-2xl shadow-xl`}
           >
             {/* Header */}
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center space-x-2">
-                <FiCommand className="text-blue-400" size={20} />
-                <span className="text-sm font-medium text-white">
+            <div className="flex justify-between items-center p-4 border-b border-white/10">
+              <div className="flex items-center space-x-3">
+                <FiCommand className="text-blue-400" size={24} />
+                <span className="text-lg font-medium text-white">
                   Voice Assistant
                 </span>
               </div>
               <button
                 onClick={handleClose}
-                className="p-1 hover:bg-gray-800 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/10 rounded-xl transition-colors"
                 aria-label="Close Voice Assistant"
               >
-                <FiX size={16} className="text-gray-400 hover:text-white" />
+                <FiX size={20} className="text-white/70 hover:text-white" />
               </button>
             </div>
 
-            {/* Visualizer */}
-            <div className="relative h-16 mb-4">
-              <Visualizer />
-            </div>
-
-            {/* Status and Controls */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <motion.div
-                  animate={{
-                    scale: isListening || isSpeaking ? [1, 1.2, 1] : 1,
-                    opacity: isListening || isSpeaking ? 1 : 0.5,
-                  }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                  className={`w-2 h-2 rounded-full ${
-                    isListening
-                      ? 'bg-blue-500'
-                      : isSpeaking
-                      ? 'bg-green-500'
-                      : 'bg-gray-500'
-                  }`}
-                />
-                <span className="text-xs text-gray-300">
-                  {isNLPMode 
-                    ? 'NLP Mode: Listening...' 
-                    : (isListening
-                      ? 'Listening...'
-                      : isSpeaking
-                      ? 'Speaking...'
-                      : isProcessing
-                      ? 'Processing...'
-                      : error
-                      ? error
-                      : 'Ready')}
-                </span>
+            {/* Main Content */}
+            <div className="p-6">
+              {/* Visualizer */}
+              <div className="relative h-24 mb-6">
+                <Visualizer />
               </div>
 
-              <div className="flex items-center space-x-2">
-                {/* NLP Mode Button */}
-                <Tooltip 
-                  content={isNLPMode ? "Disable NLP Mode" : "Enable NLP Mode"} 
-                  place="top"
-                >
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleNLPModeToggle}
-                    disabled={isProcessing || isSpeaking}
-                    className={`p-3 rounded-full ${
-                      isNLPMode
-                        ? 'bg-gradient-to-r from-green-500 to-green-600'
-                        : 'bg-gradient-to-r from-gray-500 to-gray-600'
-                    } text-white shadow-lg ${
-                      isProcessing || isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
-                    } transition-all duration-300`}
-                    aria-label={isNLPMode ? "Disable NLP Mode" : "Enable NLP Mode"}
-                  >
-                    <FiActivity size={20} />
-                  </motion.button>
-                </Tooltip>
-
-                {/* Existing Microphone Button */}
-                <Tooltip content={isListening ? "Press to Stop" : "Press to Talk"} place="top">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleMicrophoneClick}
-                    disabled={isProcessing || isSpeaking}
-                    className={`p-4 rounded-full ${
+              {/* Status and Controls */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <motion.div
+                    animate={{
+                      scale: isListening || isSpeaking ? [1, 1.2, 1] : 1,
+                      opacity: isListening || isSpeaking ? 1 : 0.5,
+                    }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                    className={`w-3 h-3 rounded-full ${
                       isListening
-                        ? 'bg-gradient-to-r from-red-500 to-red-600'
-                        : 'bg-gradient-to-r from-blue-500 to-blue-600'
-                    } text-white shadow-lg ${
-                      isProcessing || isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
-                    } transition-all duration-300`}
-                    aria-label={isListening ? "Stop Listening" : "Start Listening"}
+                        ? 'bg-blue-500'
+                        : isSpeaking
+                        ? 'bg-green-500'
+                        : 'bg-gray-500'
+                    }`}
+                  />
+                  <span className="text-sm text-white/70">
+                    {isNLPMode 
+                      ? 'NLP Mode: Listening...' 
+                      : (isListening
+                        ? 'Listening...'
+                        : isSpeaking
+                        ? 'Speaking...'
+                        : isProcessing
+                        ? 'Processing...'
+                        : error
+                        ? error
+                        : 'Ready')}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  {/* NLP Mode Button */}
+                  <Tooltip 
+                    content={isNLPMode ? "Disable NLP Mode" : "Enable NLP Mode"} 
+                    place="top"
                   >
-                    {isListening ? <FiMicOff size={24} /> : <FiMic size={24} />}
-                  </motion.button>
-                </Tooltip>
-              </div>
-            </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleNLPModeToggle}
+                      disabled={isProcessing || isSpeaking}
+                      className={`p-3 rounded-xl ${
+                        isNLPMode
+                          ? 'bg-white/10 text-white'
+                          : 'text-white/70 hover:text-white hover:bg-white/5'
+                      } ${
+                        isProcessing || isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
+                      } transition-all duration-200`}
+                      aria-label={isNLPMode ? "Disable NLP Mode" : "Enable NLP Mode"}
+                    >
+                      <FiActivity size={20} />
+                    </motion.button>
+                  </Tooltip>
 
-            {/* Quick Test Buttons */}
-            <div className="mt-3 pt-3 border-t border-gray-800">
-              <div className="flex gap-2">
-                <button
-                  onClick={testVoice}
-                  className="flex-1 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs transition-colors"
-                >
-                  Test Voice
-                </button>
-                <button
-                  onClick={() => testConversation('Hello')}
-                  className="flex-1 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs transition-colors"
-                >
-                  Test: Hello
-                </button>
+                  {/* Microphone Button */}
+                  <Tooltip content={isListening ? "Press to Stop" : "Press to Talk"} place="top">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleMicrophoneClick}
+                      disabled={isProcessing || isSpeaking}
+                      className={`p-4 rounded-xl ${
+                        isListening
+                          ? 'bg-white/10 text-white'
+                          : 'text-white/70 hover:text-white hover:bg-white/5'
+                      } ${
+                        isProcessing || isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
+                      } transition-all duration-200`}
+                      aria-label={isListening ? "Stop Listening" : "Start Listening"}
+                    >
+                      {isListening ? <FiMicOff size={24} /> : <FiMic size={24} />}
+                    </motion.button>
+                  </Tooltip>
+                </div>
               </div>
-            </div>
 
-            {/* Text Input Field */}
-            <form onSubmit={handleTextSubmit} className="mt-4">
-              <div className="flex gap-2">
+              {/* Text Input */}
+              <form onSubmit={handleTextSubmit} className="relative">
                 <input
                   type="text"
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-gray-800 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 
+                           focus:outline-none focus:border-white/20 focus:ring-2 focus:ring-white/10 transition-all duration-200
+                           ${customStyles?.input || ''}`}
                   placeholder="Type your message..."
                   aria-label="Type your message"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded text-white text-sm transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-white/70 hover:text-white transition-colors"
                   aria-label="Send Message"
                 >
-                  Send
+                  <PaperPlane className="w-5 h-5" />
+                </button>
+              </form>
+
+              {/* Quick Test Buttons */}
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={testVoice}
+                  className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl text-sm transition-colors"
+                >
+                  Test Voice
+                </button>
+                <button
+                  onClick={() => testConversation('Hello')}
+                  className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl text-sm transition-colors"
+                >
+                  Test: Hello
                 </button>
               </div>
-            </form>
+            </div>
           </motion.div>
         </motion.div>
       )}

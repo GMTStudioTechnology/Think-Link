@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PaperPlane, Microphone, Picture, Paperclip } from '@gravity-ui/icons';
 import { MazsAI } from '../../MazsAI';
+import VoiceAssistantModal from '../../VoiceAssistantModal';
 
 interface Message {
   id: string;
@@ -16,6 +17,7 @@ const ChatPage: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const ai = useRef(new MazsAI());
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -25,12 +27,19 @@ const ChatPage: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
+  const handleVoiceCommand = useCallback((command: string) => {
+    if (command.trim()) {
+      handleSendMessage(command);
+    }
+  }, []);
+
+  const handleSendMessage = async (text?: string) => {
+    const messageText = text || inputText;
+    if (!messageText.trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: inputText,
+      content: messageText,
       sender: 'user',
       timestamp: new Date(),
     };
@@ -39,7 +48,7 @@ const ChatPage: React.FC = () => {
     setInputText('');
     setIsTyping(true);
 
-    const response = await ai.current.processInput(inputText);
+    const response = await ai.current.processInput(messageText);
 
     setTimeout(() => {
       const aiMessage: Message = {
@@ -115,17 +124,29 @@ const ChatPage: React.FC = () => {
             placeholder="Chat with Mazs AI v1.5 anatra "
             className="flex-1 bg-transparent text-white placeholder-white/50 outline-none text-sm md:text-base"
           />
-          <button className="p-1.5 md:p-2 text-white/80 hover:text-white transition hidden md:block">
+          <button 
+            onClick={() => setIsVoiceModalOpen(true)}
+            className="p-1.5 md:p-2 text-white/80 hover:text-white transition hidden md:block"
+          >
             <Microphone className="w-5 h-5" />
           </button>
           <button
-            onClick={handleSendMessage}
+            onClick={() => handleSendMessage()}
             className="p-1.5 md:p-2 bg-transparent rounded-xl text-white/80 hover:text-white transition"
           >
             <PaperPlane className="w-5 h-5" />
           </button>
         </div>
       </div>
+
+      {/* Voice Assistant Modal */}
+      <VoiceAssistantModal 
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onCommand={handleVoiceCommand}
+        aiModel={ai.current}
+        trainingData={[]} // Add your training data here
+      />
     </div>
   );
 };

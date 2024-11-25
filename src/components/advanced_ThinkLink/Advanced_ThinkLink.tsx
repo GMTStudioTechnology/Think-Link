@@ -13,7 +13,8 @@ import { BackgroundGradient } from './BackgroundGradient';
 import ChatPage from './pages/ChatPage';
 import TasksPage from './pages/TasksPage';
 import DiscoverPage from './pages/DiscoverPage';
-
+import VoiceAssistantModal from '../VoiceAssistantModal';
+import { MazsAI } from '../MazsAI';
 // Add a type for the valid page paths
 type PagePath = 'chat' | 'tasks' | 'discover' | 'templates' | 'settings' | 'about';
 
@@ -29,6 +30,7 @@ const Advanced_ThinkLink: React.FC = () => {
 
   // State to manage the current active page
   const [activePage, setActivePage] = useState<PagePath>('chat');
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   // Function to render the selected page
   const renderPage = () => {
@@ -127,7 +129,10 @@ const Advanced_ThinkLink: React.FC = () => {
 
             {/* User Actions */}
             <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-5">
-              <button className="p-2 sm:p-3 text-white/80 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-200 hidden sm:block">
+              <button 
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="p-2 sm:p-3 text-white/80 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-200 hidden sm:block"
+              >
                 <Microphone className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <button className="p-2 sm:p-3 text-white/80 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-200 hidden sm:block">
@@ -193,6 +198,15 @@ const Advanced_ThinkLink: React.FC = () => {
           </motion.div>
         </div>
       </div>
+
+      {/* Voice Assistant Modal */}
+      <VoiceAssistantModal 
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onCommand={(command) => console.log('Voice command:', command)}
+        aiModel={new MazsAI()}
+        trainingData={[]} // Add your training data here
+      />
     </div>
   );
 };
