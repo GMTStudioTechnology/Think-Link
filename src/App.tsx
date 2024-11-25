@@ -10,7 +10,7 @@ import ErrorPage from './components/ErrorPage';
 import PrivateRoute from './components/PrivateRoute';
 import { AuthProvider } from './context/AuthContext';
 import Advanced_ThinkLink from './components/advanced_ThinkLink/Advanced_ThinkLink';
-
+import Think from './components/ThinkLink'
 const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -23,6 +23,7 @@ const App: React.FC = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
           <Route path="/advanced-thinklink" element={<Advanced_ThinkLink />} />
+          <Route path="/thinklink" element={<Think />} />
           <Route
             path="/advanced-thinklink"
             element={

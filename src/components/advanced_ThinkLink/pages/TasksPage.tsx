@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiSend,
@@ -16,8 +16,13 @@ const TasksPage: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [messages, setMessages] = useState<Array<{ type: 'user' | 'ai', content: string }>>([]);
   const [input, setInput] = useState('');
-  const nlpModel = useRef(new ThinkLinkNLP());
+  const nlpModel = useRef<ThinkLinkNLP | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize NLP model once on component mount
+  useEffect(() => {
+    nlpModel.current = new ThinkLinkNLP();
+  }, []);
 
   // Function to scroll to bottom of chat
   const scrollToBottom = () => {
@@ -26,13 +31,13 @@ const TasksPage: React.FC = () => {
 
   // Handle message submission
   const handleSubmit = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !nlpModel.current) return;
 
     // Add user message
     const userMessage = { type: 'user' as const, content: input };
     setMessages(prev => [...prev, userMessage]);
 
-    // Process input directly with NLP model's public method
+    // Process input with the initialized NLP model
     const taskContent = nlpModel.current.extractTaskContent(input.split(' '));
 
     // Create new task if input seems task-related

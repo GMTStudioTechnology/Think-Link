@@ -158,6 +158,22 @@ export class ThinkLinkNLP {
     planning: ['plan', 'schedule', 'organize', 'arrange', 'coordinate']
   };
 
+  // Enhanced date parsing patterns
+  private datePatterns = {
+    relative: {
+      today: /\b(today|tonight)\b/i,
+      tomorrow: /\b(tomorrow)\b/i,
+      nextWeek: /\b(next\s+week)\b/i,
+      nextMonth: /\b(next\s+month)\b/i,
+      weekend: /\b(this\s+weekend|next\s+weekend)\b/i,
+    },
+    absolute: {
+      date: /\b(\d{1,2})(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/i,
+      dayMonth: /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2})(st|nd|rd|th)?\b/i,
+      time: /\b(\d{1,2}):?(\d{2})?\s*(am|pm)?\b/i,
+    }
+  };
+
   constructor() {
     if (!this.loadModel()) {
       this.initializeWeights();
@@ -927,25 +943,28 @@ export class ThinkLinkNLP {
    * Analyzes text to extract structured information about tasks
    */
   public analyzeText(text: string): NLUResult {
-    const sentences = this.splitIntoSentences(text);
-    const parsedSentences = sentences.map(sentence => this.parseSentence(sentence));
-    
-    // Find the most relevant sentence
-    const mainSentence = this.findMainSentence(parsedSentences);
-    
-    // Extract entities and relationships
     const entities = this.extractEntities(text);
     
-    // Calculate overall sentiment and urgency
-    const sentiment = this.calculateSentiment(text);
+    // Extract time information
+    const timeEntity = this.extractDateTime(text);
+    if (timeEntity) {
+      entities.time = timeEntity.toISOString();
+    }
+    
+    // Calculate urgency based on time proximity and keywords
     const urgency = this.calculateUrgency(text);
+    
+    // Extract main action and topic
+    const mainSentence = this.findMainSentence(
+      text.split(/[.!?]+/).map(s => this.parseSentence(s))
+    );
     
     return {
       mainTopic: mainSentence.topic || '',
       action: mainSentence.action || '',
       entities,
       keywords: this.extractKeywords(text),
-      sentiment,
+      sentiment: this.calculateSentiment(text),
       urgency
     };
   }
@@ -1229,5 +1248,50 @@ export class ThinkLinkNLP {
         !this.sentimentWeights.negative.includes(token)
       )
       .join(' ');
+  }
+
+  // Enhanced time extraction
+  private extractDateTime(text: string): Date | undefined {
+    const lowerText = text.toLowerCase();
+    const now = new Date();
+    
+    // Check relative dates
+    if (this.datePatterns.relative.today.test(lowerText)) {
+      return now;
+    }
+    if (this.datePatterns.relative.tomorrow.test(lowerText)) {
+      return new Date(now.setDate(now.getDate() + 1));
+    }
+    if (this.datePatterns.relative.nextWeek.test(lowerText)) {
+      return new Date(now.setDate(now.getDate() + 7));
+    }
+    
+    // Check for specific time mentions
+    const timeMatch = lowerText.match(this.datePatterns.absolute.time);
+    if (timeMatch) {
+      const hours = parseInt(timeMatch[1]);
+      const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+      const isPM = timeMatch[3]?.toLowerCase() === 'pm';
+      
+      const date = new Date();
+      date.setHours(isPM ? hours + 12 : hours, minutes, 0);
+      return date;
+    }
+    
+    // Check for specific dates
+    const dateMatch = lowerText.match(this.datePatterns.absolute.date);
+    if (dateMatch) {
+      const months = {
+        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+      };
+      const day = parseInt(dateMatch[1]);
+      const month = months[dateMatch[3].toLowerCase() as keyof typeof months];
+      const date = new Date();
+      date.setMonth(month, day);
+      return date;
+    }
+    
+    return undefined;
   }
 }
