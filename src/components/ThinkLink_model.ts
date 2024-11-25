@@ -820,14 +820,22 @@ export class ThinkLinkNLP {
   }
 
   // Helper method to get next occurrence of a weekday
-  private getNextWeekday(dayName: string): Date {
+  private getNextWeekday(dayName: string, includeToday: boolean = true): Date {
     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const today = new Date();
     const targetDay = days.indexOf(dayName.toLowerCase());
-    const todayDay = today.getDay();
-    let daysUntilTarget = targetDay - todayDay;
-    if (daysUntilTarget <= 0) daysUntilTarget += 7;
-    return new Date(today.setDate(today.getDate() + daysUntilTarget));
+    if (targetDay === -1) return new Date();
+
+    const today = new Date();
+    const currentDay = today.getDay();
+    let daysUntilTarget = targetDay - currentDay;
+
+    if (daysUntilTarget < 0 || (daysUntilTarget === 0 && !includeToday)) {
+      daysUntilTarget += 7;
+    }
+
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + daysUntilTarget);
+    return nextDate;
   }
 
   // Enhanced context extraction
@@ -1254,8 +1262,27 @@ export class ThinkLinkNLP {
   private extractDateTime(text: string): Date | undefined {
     const lowerText = text.toLowerCase();
     const now = new Date();
-    
-    // Check relative dates
+
+    // Handle "next monday", "this friday", etc.
+    const nextWeekdayMatch = lowerText.match(/next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/);
+    const thisWeekdayMatch = lowerText.match(/this\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/);
+
+    if (nextWeekdayMatch) {
+      return this.getNextWeekday(nextWeekdayMatch[1]);
+    }
+
+    if (thisWeekdayMatch) {
+      const date = this.getNextWeekday(thisWeekdayMatch[1]);
+      const today = new Date();
+      const targetDay = date.getDay();
+      const currentDay = today.getDay();
+      if (targetDay === currentDay) {
+        return date;
+      }
+      return this.getNextWeekday(thisWeekdayMatch[1], false); // Get the upcoming one if not the same day
+    }
+
+    // Existing relative date handling
     if (this.datePatterns.relative.today.test(lowerText)) {
       return now;
     }
@@ -1265,19 +1292,19 @@ export class ThinkLinkNLP {
     if (this.datePatterns.relative.nextWeek.test(lowerText)) {
       return new Date(now.setDate(now.getDate() + 7));
     }
-    
+
     // Check for specific time mentions
     const timeMatch = lowerText.match(this.datePatterns.absolute.time);
     if (timeMatch) {
       const hours = parseInt(timeMatch[1]);
       const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
       const isPM = timeMatch[3]?.toLowerCase() === 'pm';
-      
+
       const date = new Date();
       date.setHours(isPM ? hours + 12 : hours, minutes, 0);
       return date;
     }
-    
+
     // Check for specific dates
     const dateMatch = lowerText.match(this.datePatterns.absolute.date);
     if (dateMatch) {
@@ -1291,7 +1318,7 @@ export class ThinkLinkNLP {
       date.setMonth(month, day);
       return date;
     }
-    
+
     return undefined;
   }
 }

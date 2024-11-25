@@ -22,11 +22,44 @@ const TasksPage: React.FC = () => {
   // Initialize NLP model once on component mount
   useEffect(() => {
     nlpModel.current = new ThinkLinkNLP();
+    // Load tasks from localStorage
+    const storedTasks = localStorage.getItem('thinklink_tasks');
+    if (storedTasks) {
+      try {
+        const parsedTasks: Task[] = JSON.parse(storedTasks);
+        // Convert due dates from string to Date objects
+        parsedTasks.forEach(task => {
+          if (task.due) {
+            task.due = new Date(task.due);
+          }
+          if (task.created) {
+            task.created = new Date(task.created);
+          }
+        });
+        setTasks(parsedTasks);
+      } catch (error) {
+        console.error('Failed to parse tasks from localStorage:', error);
+      }
+    }
   }, []);
+
+  // Save tasks to localStorage whenever tasks change
+  useEffect(() => {
+    localStorage.setItem('thinklink_tasks', JSON.stringify(tasks));
+  }, [tasks]);
 
   // Function to scroll to bottom of chat
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Helper function to format dates as YYYY/MM/DD
+  const formatDate = (date?: Date): string => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}/${month}/${day}`;
   };
 
   // Handle message submission
@@ -42,21 +75,31 @@ const TasksPage: React.FC = () => {
 
     // Create new task if input seems task-related
     if (taskContent) {
-      const newTask: Task = {
-        id: Math.random().toString(36).substr(2, 9),
-        content: taskContent,
-        priority: 'medium',
-        category: 'personal',
-        created: new Date(),
-        status: 'pending'
-      };
-      setTasks(prev => [...prev, newTask]);
+      const processResult = nlpModel.current.processCommand(input);
+      if (processResult.action === 'create' && processResult.task) {
+        const newTask: Task = {
+          id: processResult.task.id || Math.random().toString(36).substr(2, 9),
+          content: processResult.task.content,
+          priority: processResult.task.priority,
+          category: processResult.task.category,
+          created: processResult.task.created || new Date(),
+          due: processResult.task.due ? new Date(processResult.task.due) : undefined,
+          status: processResult.task.status || 'pending',
+          type: processResult.task.type || 'task',
+          context: processResult.task.context
+        };
+        setTasks(prev => [...prev, newTask]);
 
-      // Add AI response
-      setMessages(prev => [...prev, {
-        type: 'ai',
-        content: `I've created a new task: "${taskContent}". Would you like to set a priority or due date for this task?`
-      }]);
+        // Add AI response
+        let aiResponse = `I've created a new task: "${newTask.content}".`;
+        if (processResult.suggestions && processResult.suggestions.length > 0) {
+          aiResponse += ` ${processResult.suggestions.join(' ')}`;
+        }
+        setMessages(prev => [...prev, {
+          type: 'ai',
+          content: aiResponse
+        }]);
+      }
     } else {
       // Generic AI response
       setMessages(prev => [...prev, {
@@ -76,6 +119,18 @@ const TasksPage: React.FC = () => {
     border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '24px',
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+  };
+
+  // Handle task status toggle
+  const toggleTaskStatus = (id: string) => {
+    setTasks(prevTasks => prevTasks.map(task => 
+      task.id === id ? { ...task, status: task.status === 'pending' ? 'done' : 'pending' } : task
+    ));
+  };
+
+  // Handle task deletion
+  const deleteTask = (id: string) => {
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
   };
 
   return (
@@ -113,7 +168,33 @@ const TasksPage: React.FC = () => {
               <button className="p-2 md:px-4 md:py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all">
                 <FiCalendar className="w-4 h-4 md:w-5 md:h-5" />
               </button>
-              <button className="p-2 md:px-4 md:py-2 rounded-xl bg-indigo-500/80 hover:bg-indigo-500 text-white transition-all text-sm md:text-base">
+              <button
+                onClick={() => {
+                  // Prompt user for new task input
+                  const newTaskInput = prompt("Enter new task:");
+                  if (newTaskInput && nlpModel.current) {
+                    const taskContent = nlpModel.current.extractTaskContent(newTaskInput.split(' '));
+                    if (taskContent) {
+                      const processResult = nlpModel.current.processCommand(newTaskInput);
+                      if (processResult.action === 'create' && processResult.task) {
+                        const newTask: Task = {
+                          id: processResult.task.id || Math.random().toString(36).substr(2, 9),
+                          content: processResult.task.content,
+                          priority: processResult.task.priority,
+                          category: processResult.task.category,
+                          created: processResult.task.created || new Date(),
+                          due: processResult.task.due ? new Date(processResult.task.due) : undefined,
+                          status: processResult.task.status || 'pending',
+                          type: processResult.task.type || 'task',
+                          context: processResult.task.context
+                        };
+                        setTasks(prev => [...prev, newTask]);
+                      }
+                    }
+                  }
+                }}
+                className="p-2 md:px-4 md:py-2 rounded-xl bg-indigo-500/80 hover:bg-indigo-500 text-white transition-all text-sm md:text-base"
+              >
                 + New
               </button>
             </div>
@@ -131,6 +212,7 @@ const TasksPage: React.FC = () => {
               >
                 <div className="flex items-center space-x-3 md:space-x-4">
                   <button 
+                    onClick={() => toggleTaskStatus(task.id)}
                     className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
                       ${task.status === 'done'
                         ? 'bg-green-500 border-green-500'
@@ -154,7 +236,7 @@ const TasksPage: React.FC = () => {
                       {task.due && (
                         <div className="flex items-center space-x-1 text-white/50 text-xs md:text-sm">
                           <FiCalendar size={12} />
-                          <span>{task.due.toLocaleDateString()}</span>
+                          <span>{formatDate(task.due)}</span>
                         </div>
                       )}
                       <span className="text-white/30 text-xs md:text-sm hidden sm:inline">{task.category}</span>
@@ -162,10 +244,26 @@ const TasksPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-1 md:space-x-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-all">
+                    <button 
+                      onClick={() => {
+                        const newContent = prompt("Edit task:", task.content);
+                        if (newContent && nlpModel.current) {
+                          const updatedContent = nlpModel.current.extractTaskContent(newContent.split(' '));
+                          if (updatedContent) {
+                            setTasks(prevTasks => prevTasks.map(t => 
+                              t.id === task.id ? { ...t, content: updatedContent } : t
+                            ));
+                          }
+                        }
+                      }}
+                      className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-all"
+                    >
                       <FiEdit2 size={14} className="md:w-4 md:h-4" />
                     </button>
-                    <button className="p-1.5 md:p-2 hover:bg-red-500/20 rounded-lg text-white/70 hover:text-red-400 transition-all">
+                    <button 
+                      onClick={() => deleteTask(task.id)}
+                      className="p-1.5 md:p-2 hover:bg-red-500/20 rounded-lg text-white/70 hover:text-red-400 transition-all"
+                    >
                       <FiTrash2 size={14} className="md:w-4 md:h-4" />
                     </button>
                   </div>
@@ -235,6 +333,5 @@ const TasksPage: React.FC = () => {
 };
 
 // Add this CSS to your global styles
-
 
 export default TasksPage; 
