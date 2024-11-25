@@ -84,7 +84,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   aiModel,
   trainingData,
   customStyles,
-  features,
+
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
