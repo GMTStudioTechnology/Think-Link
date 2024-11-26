@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiMic, FiMicOff, FiX, FiCommand, FiActivity } from 'react-icons/fi';
+import { FiMic, FiX, FiCommand, FiActivity } from 'react-icons/fi';
 import { MazsAI } from './MazsAI';
 import { Tooltip } from 'react-tooltip';
 import { findBestMatch, TrainingData } from '../data/NLP';
@@ -106,6 +106,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   const [textInput, setTextInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState<number>(0);
+  const [isContinuousMode, setIsContinuousMode] = useState(false);
 
   // Load voices on component mount
   useEffect(() => {
@@ -137,7 +138,17 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     return voices.length > 0 ? voices[0] : null;
   }, [voices]);
 
-  // Enhanced handleTranscript function
+  // Update the handleMicrophoneClick to enable continuous conversation
+  const handleMicrophoneClick = () => {
+    if (isSpeaking || isProcessing) return;
+    
+    // Toggle continuous mode
+    setIsContinuousMode(prev => !prev);
+    setIsListening(prev => !prev);
+    setError(null);
+  };
+
+  // Update handleTranscript to support continuous conversation
   const handleTranscript = useCallback(
     async (text: string) => {
       if (!text.trim() || isProcessing) return;
@@ -157,7 +168,8 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         }
 
         if ('speechSynthesis' in window) {
-          if (window.speechSynthesis.speaking) {
+          // Don't cancel ongoing speech if we're in listening mode
+          if (!isListening && window.speechSynthesis.speaking) {
             window.speechSynthesis.cancel();
           }
 
@@ -171,22 +183,18 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
           utterance.pitch = 0.9;
           utterance.volume = 1;
 
-          const formattedResponse = response
-            .replace(/\. /g, '.\n')
-            .replace(/, /g, ',\n')
-            .replace(/\? /g, '?\n')
-            .replace(/! /g, '!\n');
-          utterance.text = formattedResponse;
-
+          // Keep listening state active during speech
           utterance.onstart = () => {
             console.log('Started speaking');
             setIsSpeaking(true);
+            // Don't stop listening when speaking starts
           };
 
           utterance.onend = () => {
             console.log('Finished speaking');
             setIsSpeaking(false);
             setIsProcessing(false);
+            // Don't stop listening when speaking ends
           };
 
           utterance.onerror = (event) => {
@@ -207,7 +215,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         setIsProcessing(false);
       }
     },
-    [aiModel, selectVoice, isProcessing]
+    [aiModel, selectVoice, isProcessing, isListening]
   );
 
   // Optimize animation logic with useCallback and throttling
@@ -309,34 +317,6 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   }, [isListening]);
 
   // Memoize Visualizer component
-  const Visualizer = useMemo(() => {
-    return () => (
-      <div className="flex justify-center items-center h-32 space-x-1">
-        {visualizerData.map((_, index) => (
-          <motion.div
-            key={index}
-            initial={false}
-            animate={{
-              height: isListening 
-                ? `${Math.max(20, audioLevel + Math.random() * 20)}%`
-                : isSpeaking
-                ? '60%'
-                : '10%',
-              transition: { type: 'spring', damping: 10 },
-            }}
-            className={`w-2 rounded-full ${
-              isListening
-                ? 'bg-blue-500 animate-pulse'
-                : isSpeaking
-                ? 'bg-green-500 animate-pulse'
-                : 'bg-gray-600'
-            }`}
-            style={{ minHeight: '4px' }}
-          />
-        ))}
-      </div>
-    );
-  }, [visualizerData, isListening, isSpeaking, audioLevel]);
 
   // Create a properly typed debounced function
   const debouncedSetTextInput = useMemo(
@@ -358,7 +338,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     }
   }, [trainingData, handleTranscript]);
 
-  // Enhanced Speech Recognition Effect with NLP Mode
+  // Update the Speech Recognition effect to maintain continuous conversation
   useEffect(() => {
     let recognition: SpeechRecognition | null = null;
 
@@ -376,7 +356,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
             const transcript = event.results[i][0].transcript;
 
             if (event.results[i].isFinal) {
-              // Process final results immediately
+              // Process final results immediately while maintaining listening state
               if (isNLPMode) {
                 processNLPResponse(transcript.trim());
               } else {
@@ -394,7 +374,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         recognition.onend = () => {
           console.log('Speech recognition ended');
           
-          // Only restart if still in listening mode
+          // Automatically restart recognition if still in listening mode
           if (isListening && recognition) {
             try {
               recognition.start();
@@ -497,6 +477,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     setIsListening(false);
     setIsSpeaking(false);
     setIsProcessing(false);
+    setIsContinuousMode(false);
     setError(null);
     onClose();
   };
@@ -533,19 +514,6 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     }
   };
 
-  // Update handleMicrophoneClick to handle continuous conversation
-  const handleMicrophoneClick = () => {
-    if (isSpeaking || isProcessing) return;
-    
-    if (isListening) {
-      setIsListening(false);
-      window.speechSynthesis.cancel(); // Stop any ongoing speech
-    } else {
-      setIsListening(true);
-      setError(null);
-    }
-  };
-
   // Use the debounced function in the input handler
   const handleTextInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     debouncedSetTextInput(e.target.value);
@@ -555,7 +523,10 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   const getStatusText = () => {
     if (error) return error;
     if (isProcessing) return 'Processing...';
-    if (isListening && isSpeaking) return 'Listening and Speaking...';
+    if (isContinuousMode) {
+      if (isSpeaking) return 'Speaking (Continuous Mode)';
+      return 'Listening (Continuous Mode)';
+    }
     if (isListening) return 'Listening...';
     if (isSpeaking) return 'Speaking...';
     return 'Ready';
@@ -600,39 +571,35 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
 
             {/* Main Content */}
             <div className="p-6">
-              {/* Enhanced Visualizer */}
-              <div className="relative h-24 mb-6">
-                <Visualizer />
-                {isListening && (
+              {/* Visualizer */}
+              <div className="flex justify-center items-center h-32 space-x-1">
+                {visualizerData.map((_, index) => (
                   <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-                  >
-                    <div className="relative">
-                      <motion.div
-                        animate={{
-                          scale: [1, 1.2, 1],
-                          opacity: [0.5, 0.8, 0.5],
-                        }}
-                        transition={{
-                          duration: 2,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }}
-                        className="absolute inset-0 bg-blue-500/20 rounded-full"
-                        style={{
-                          width: '50px',
-                          height: '50px',
-                        }}
-                      />
-                      <div className="relative z-10 bg-blue-500 rounded-full p-3">
-                        <FiMic className="text-white" size={24} />
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
+                    key={index}
+                    initial={false}
+                    animate={{
+                      height: isListening 
+                        ? `${Math.max(20, audioLevel + Math.random() * 20)}%`
+                        : isSpeaking
+                        ? '60%'
+                        : '10%',
+                      transition: { type: 'spring', damping: 10 },
+                    }}
+                    className={`w-2 rounded-full ${
+                      isListening
+                        ? 'bg-blue-500'
+                        : isSpeaking
+                        ? 'bg-green-500'
+                        : 'bg-gray-600'
+                    }`}
+                    style={{ minHeight: '4px' }}
+                  />
+                ))}
+              </div>
+
+              {/* Status Text */}
+              <div className="text-center text-white/70 text-sm mb-4">
+                {getStatusText()}
               </div>
 
               {/* Enhanced Status Display */}
@@ -681,23 +648,34 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                     </motion.button>
                   </Tooltip>
 
-                  {/* Microphone Button */}
-                  <Tooltip content={isListening ? "Press to Stop" : "Press to Talk"} place="top">
+                  {/* Continuous Conversation Toggle Button */}
+                  <Tooltip content={isContinuousMode ? "Stop Conversation" : "Start Conversation"} place="top">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={handleMicrophoneClick}
-                      disabled={isProcessing || isSpeaking}
+                      disabled={isProcessing}
                       className={`p-4 rounded-xl ${
-                        isListening
-                          ? 'bg-white/10 text-white'
+                        isContinuousMode
+                          ? 'bg-blue-500 text-white'
                           : 'text-white/70 hover:text-white hover:bg-white/5'
                       } ${
-                        isProcessing || isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
+                        isProcessing ? 'opacity-50 cursor-not-allowed' : ''
                       } transition-all duration-200`}
-                      aria-label={isListening ? "Stop Listening" : "Start Listening"}
+                      aria-label={isContinuousMode ? "Stop Conversation" : "Start Conversation"}
                     >
-                      {isListening ? <FiMicOff size={24} /> : <FiMic size={24} />}
+                      {isContinuousMode ? (
+                        <div className="relative">
+                          <FiMic size={24} />
+                          <motion.div
+                            className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          />
+                        </div>
+                      ) : (
+                        <FiMic size={24} />
+                      )}
                     </motion.button>
                   </Tooltip>
                 </div>
@@ -709,19 +687,51 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                   type="text"
                   value={textInput}
                   onChange={handleTextInputChange}
-                  className={`w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 
-                           focus:outline-none focus:border-white/20 focus:ring-2 focus:ring-white/10 transition-all duration-200
-                           ${customStyles?.input || ''}`}
+                  className="w-full pl-4 pr-20 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 
+                           focus:outline-none focus:border-white/20 focus:ring-2 focus:ring-white/10 transition-all duration-200"
                   placeholder="Type your message..."
                   aria-label="Type your message"
                 />
-                <button
-                  type="submit"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-white/70 hover:text-white transition-colors"
-                  aria-label="Send Message"
-                >
-                  <PaperPlane className="w-5 h-5" />
-                </button>
+                
+                {/* Action Buttons Container */}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+                  {/* Microphone Button */}
+                  <button
+                    type="button"
+                    onClick={handleMicrophoneClick}
+                    disabled={isProcessing}
+                    className={`p-2 rounded-lg transition-all duration-200 ${
+                      isContinuousMode
+                        ? 'bg-blue-500 text-white'
+                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                    } ${
+                      isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    aria-label={isContinuousMode ? "Stop Conversation" : "Start Conversation"}
+                  >
+                    {isContinuousMode ? (
+                      <div className="relative">
+                        <FiMic size={20} />
+                        <motion.div
+                          className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        />
+                      </div>
+                    ) : (
+                      <FiMic size={20} />
+                    )}
+                  </button>
+
+                  {/* Send Button */}
+                  <button
+                    type="submit"
+                    className="p-2 text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-200"
+                    aria-label="Send Message"
+                  >
+                    <PaperPlane className="w-5 h-5" />
+                  </button>
+                </div>
               </form>
 
               {/* Quick Test Buttons */}
