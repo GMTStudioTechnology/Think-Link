@@ -17,7 +17,7 @@ import WeatherPage from './pages/WeatherPage';
 import VoiceAssistantModal from '../VoiceAssistantModal';
 import { MazsAI } from '../MazsAI';
 // Add a type for the valid page paths
-type PagePath = 'chat' | 'tasks' | 'discover' | 'weather' | 'templates' | 'settings' | 'about';
+type PagePath = 'chat' | 'tasks' | 'weather' | 'discover' ;
 
 const Advanced_ThinkLink: React.FC = () => {
   // Enhanced glassmorphism effect
@@ -40,10 +40,10 @@ const Advanced_ThinkLink: React.FC = () => {
         return <ChatPage />;
       case 'tasks':
         return <TasksPage />;
+        case 'weather':
+          return <WeatherPage />;
       case 'discover':
         return <DiscoverPage />;
-      case 'weather':
-        return <WeatherPage />;
       default:
         return <ChatPage />;
     }
@@ -81,8 +81,8 @@ const Advanced_ThinkLink: React.FC = () => {
               {[
                 { label: 'Chat', path: 'chat' },
                 { label: 'Tasks', path: 'tasks' },
-                { label: 'Discover', path: 'discover' },
                 { label: 'Weather', path: 'weather' },
+                { label: 'Discover', path: 'discover' },
               ].map(({ label, path }) => (
                 <button 
                   key={path}
@@ -104,8 +104,8 @@ const Advanced_ThinkLink: React.FC = () => {
               {[
                 { label: 'Chat', path: 'chat' },
                 { label: 'Tasks', path: 'tasks' },
-                { label: 'Discover', path: 'discover' },
                 { label: 'Weather', path: 'weather' },
+                { label: 'Discover', path: 'discover' },
               ].map(({ label, path }) => (
                 <button 
                   key={path}
@@ -155,8 +155,8 @@ const Advanced_ThinkLink: React.FC = () => {
             {[
               { icon: <FaceRobot />, label: 'Chat', path: 'chat' as PagePath },
               { icon: <PencilToSquare />, label: 'Tasks', path: 'tasks' as PagePath },
-              { icon: <Video />, label: 'Discover', path: 'discover' as PagePath },
               { icon: <Cloud />, label: 'Weather', path: 'weather' as PagePath },
+              { icon: <Video />, label: 'Discover', path: 'discover' as PagePath },
             ].map(({ icon, label, path }) => (
               <button 
                 key={label}
@@ -181,8 +181,8 @@ const Advanced_ThinkLink: React.FC = () => {
               {[
                 { icon: <FaceRobot />, label: 'MazsAI Chatbot', path: 'chat' as PagePath },
                 { icon: <PencilToSquare />, label: 'ThinkLink Tasks', path: 'tasks' as PagePath },
-                { icon: <Video />, label: 'Discover', path: 'discover' as PagePath },
                 { icon: <Cloud />, label: 'Weather', path: 'weather' as PagePath },
+                { icon: <Video />, label: 'Discover', path: 'discover' as PagePath },
               ].map(({ icon, label, path }) => (
                 <button 
                   key={label}
