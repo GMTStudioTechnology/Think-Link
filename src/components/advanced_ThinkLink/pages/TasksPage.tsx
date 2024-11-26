@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiSend,
@@ -112,14 +112,127 @@ const TasksPage: React.FC = () => {
     setTimeout(scrollToBottom, 100);
   };
 
-  // Enhanced glassmorphism style to match parent
-  const glassStyle = {
+  // Memoize the stats calculation
+  const taskStats = useMemo(() => ({
+    total: tasks.length,
+    completed: tasks.filter(t => t.status === 'done').length,
+    pending: tasks.filter(t => t.status === 'pending').length,
+    highPriority: tasks.filter(t => t.priority === 'high').length,
+  }), [tasks]);
+
+  // Memoize the glass style
+  const glassStyle = useMemo(() => ({
     background: 'rgba(255, 255, 255, 0.07)',
     backdropFilter: 'blur(20px)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '24px',
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-  };
+  }), []);
+
+  // Extract TaskItem into a separate memoized component
+  const TaskItem = memo(({ task }: { task: Task }) => (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={glassStyle}
+      className="p-3 md:p-4 hover:bg-white/5 transition-all group"
+    >
+      <div className="flex items-center space-x-3 md:space-x-4">
+        <button 
+          onClick={() => toggleTaskStatus(task.id)}
+          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
+            ${task.status === 'done'
+              ? 'bg-green-500 border-green-500'
+              : 'border-white/30 hover:border-white group-hover:scale-110'
+            }`}
+        >
+          {task.status === 'done' && <FiCheck className="text-white" size={14} />}
+        </button>
+        
+        <div className="flex-1 min-w-0">
+          <h4 className={`font-medium text-sm md:text-base text-white/90 truncate ${task.status === 'done' ? 'line-through text-white/50' : ''}`}>
+            {task.content}
+          </h4>
+          <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2">
+            <span className={`px-2 py-0.5 md:py-1 rounded-lg text-xs
+              ${task.priority === 'high' ? 'bg-red-500/20 text-red-300' :
+                task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                'bg-blue-500/20 text-blue-300'}`}>
+              {task.priority}
+            </span>
+            {task.due && (
+              <div className="flex items-center space-x-1 text-white/50 text-xs md:text-sm">
+                <FiCalendar size={12} />
+                <span>{formatDate(task.due)}</span>
+              </div>
+            )}
+            <span className="text-white/30 text-xs md:text-sm hidden sm:inline">{task.category}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-1 md:space-x-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+          <button 
+            onClick={() => {
+              const newContent = prompt("Edit task:", task.content);
+              if (newContent && nlpModel.current) {
+                const updatedContent = nlpModel.current.extractTaskContent(newContent.split(' '));
+                if (updatedContent) {
+                  setTasks(prevTasks => prevTasks.map(t => 
+                    t.id === task.id ? { ...t, content: updatedContent } : t
+                  ));
+                }
+              }
+            }}
+            className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-all"
+          >
+            <FiEdit2 size={14} className="md:w-4 md:h-4" />
+          </button>
+          <button 
+            onClick={() => deleteTask(task.id)}
+            className="p-1.5 md:p-2 hover:bg-red-500/20 rounded-lg text-white/70 hover:text-red-400 transition-all"
+          >
+            <FiTrash2 size={14} className="md:w-4 md:h-4" />
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  ));
+
+  // Optimize the tasks list rendering
+  const TasksList = memo(() => (
+    <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 pr-2 md:pr-4 custom-scrollbar">
+      {tasks.map((task) => (
+        <TaskItem key={task.id} task={task} />
+      ))}
+    </div>
+  ));
+
+  // Optimize messages list with windowing if needed
+  const MessagesList = memo(() => (
+    <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4">
+      <AnimatePresence mode="popLayout">
+        {messages.map((message, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div className={`max-w-[80%] p-4 rounded-2xl ${
+              message.type === 'user'
+                ? 'bg-indigo-500/80 text-white ml-8'
+                : 'bg-white/5 text-white/90 mr-8'
+            }`}>
+              {message.content}
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+      <div ref={messagesEndRef} />
+    </div>
+  ));
 
   // Handle task status toggle
   const toggleTaskStatus = (id: string) => {
@@ -138,10 +251,10 @@ const TasksPage: React.FC = () => {
       {/* Task Stats Section */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
         {[
-          { label: 'Total Tasks', value: tasks.length, color: 'from-blue-500 to-indigo-600' },
-          { label: 'Completed', value: tasks.filter(t => t.status === 'done').length, color: 'from-green-500 to-emerald-600' },
-          { label: 'In Progress', value: tasks.filter(t => t.status === 'pending').length, color: 'from-amber-500 to-orange-600' },
-          { label: 'High Priority', value: tasks.filter(t => t.priority === 'high').length, color: 'from-red-500 to-rose-600' },
+          { label: 'Total Tasks', value: taskStats.total, color: 'from-blue-500 to-indigo-600' },
+          { label: 'Completed', value: taskStats.completed, color: 'from-green-500 to-emerald-600' },
+          { label: 'In Progress', value: taskStats.pending, color: 'from-amber-500 to-orange-600' },
+          { label: 'High Priority', value: taskStats.highPriority, color: 'from-red-500 to-rose-600' },
         ].map((stat, index) => (
           <motion.div
             key={index}
@@ -200,77 +313,7 @@ const TasksPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 pr-2 md:pr-4 custom-scrollbar">
-            {tasks.map((task) => (
-              <motion.div
-                key={task.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                style={glassStyle}
-                className="p-3 md:p-4 hover:bg-white/5 transition-all group"
-              >
-                <div className="flex items-center space-x-3 md:space-x-4">
-                  <button 
-                    onClick={() => toggleTaskStatus(task.id)}
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
-                      ${task.status === 'done'
-                        ? 'bg-green-500 border-green-500'
-                        : 'border-white/30 hover:border-white group-hover:scale-110'
-                      }`}
-                  >
-                    {task.status === 'done' && <FiCheck className="text-white" size={14} />}
-                  </button>
-                  
-                  <div className="flex-1 min-w-0">
-                    <h4 className={`font-medium text-sm md:text-base text-white/90 truncate ${task.status === 'done' ? 'line-through text-white/50' : ''}`}>
-                      {task.content}
-                    </h4>
-                    <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2">
-                      <span className={`px-2 py-0.5 md:py-1 rounded-lg text-xs
-                        ${task.priority === 'high' ? 'bg-red-500/20 text-red-300' :
-                          task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                          'bg-blue-500/20 text-blue-300'}`}>
-                        {task.priority}
-                      </span>
-                      {task.due && (
-                        <div className="flex items-center space-x-1 text-white/50 text-xs md:text-sm">
-                          <FiCalendar size={12} />
-                          <span>{formatDate(task.due)}</span>
-                        </div>
-                      )}
-                      <span className="text-white/30 text-xs md:text-sm hidden sm:inline">{task.category}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-1 md:space-x-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => {
-                        const newContent = prompt("Edit task:", task.content);
-                        if (newContent && nlpModel.current) {
-                          const updatedContent = nlpModel.current.extractTaskContent(newContent.split(' '));
-                          if (updatedContent) {
-                            setTasks(prevTasks => prevTasks.map(t => 
-                              t.id === task.id ? { ...t, content: updatedContent } : t
-                            ));
-                          }
-                        }
-                      }}
-                      className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-all"
-                    >
-                      <FiEdit2 size={14} className="md:w-4 md:h-4" />
-                    </button>
-                    <button 
-                      onClick={() => deleteTask(task.id)}
-                      className="p-1.5 md:p-2 hover:bg-red-500/20 rounded-lg text-white/70 hover:text-red-400 transition-all"
-                    >
-                      <FiTrash2 size={14} className="md:w-4 md:h-4" />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          <TasksList />
         </motion.div>
 
         {/* Chat Assistant */}
@@ -282,28 +325,7 @@ const TasksPage: React.FC = () => {
             <h2 className="text-xl font-semibold text-white">Task Assistant</h2>
           </div>
 
-          <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4">
-            <AnimatePresence>
-              {messages.map((message, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-[80%] p-4 rounded-2xl ${
-                    message.type === 'user'
-                      ? 'bg-indigo-500/80 text-white ml-8'
-                      : 'bg-white/5 text-white/90 mr-8'
-                  }`}>
-                    {message.content}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-            <div ref={messagesEndRef} />
-          </div>
+          <MessagesList />
 
           <div className="p-4 border-t border-white/10">
             <div className="flex items-center space-x-2">
