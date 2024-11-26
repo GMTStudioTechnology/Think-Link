@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiMic, FiMicOff, FiX, FiCommand, FiActivity } from 'react-icons/fi';
 import { MazsAI } from './MazsAI';
@@ -76,6 +76,17 @@ interface VoiceAssistantModalProps {
     enableTestButtons?: boolean;
     showStatus?: boolean;
   };
+}
+// Fix the debounce utility with more specific types
+function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return ((...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  }) as T;
 }
 
 const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
@@ -199,15 +210,18 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     [aiModel, selectVoice, isProcessing]
   );
 
-  // Animation Logic
-  useEffect(() => {
-    let animationFrameId: number;
-    let startTime: number;
+  // Optimize animation logic with useCallback and throttling
+  const animate = useCallback((timestamp: number) => {
+    if (!startTime.current) startTime.current = timestamp;
+    const elapsed = timestamp - startTime.current;
 
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
+    // Only update visualizer data if listening/speaking state changed or every 100ms
+    const shouldUpdate = 
+      prevState.current.isListening !== isListening || 
+      prevState.current.isSpeaking !== isSpeaking ||
+      timestamp - lastUpdate.current > 100;
 
+    if (shouldUpdate) {
       if (isListening || isSpeaking) {
         const newData = Array(10)
           .fill(0)
@@ -215,7 +229,6 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
             const frequency = i * 0.5 + elapsed * 0.003;
             const amplitude = isListening ? 40 : 30;
             const baseHeight = 30;
-
             return baseHeight + Math.sin(frequency) * amplitude + Math.random() * 20;
           });
 
@@ -224,40 +237,59 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         setVisualizerData(Array(10).fill(10));
       }
 
-      animationFrameId = requestAnimationFrame(animate);
-    };
+      lastUpdate.current = timestamp;
+      prevState.current = { isListening, isSpeaking };
+    }
 
-    animationFrameId = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
+    animationFrameId.current = requestAnimationFrame(animate);
   }, [isListening, isSpeaking]);
 
-  // Visualizer Component
-  const Visualizer = () => (
-    <div className="flex justify-center items-center h-32 space-x-1">
-      {visualizerData.map((height, index) => (
-        <motion.div
-          key={index}
-          initial={{ height: '10%' }}
-          animate={{
-            height: `${height}%`,
-            transition: { type: 'spring', damping: 10 },
-          }}
-          className={`w-2 rounded-full ${
-            isListening
-              ? 'bg-blue-500 animate-pulse'
-              : isSpeaking
-              ? 'bg-green-500 animate-pulse'
-              : 'bg-gray-600'
-          }`}
-          style={{ minHeight: '4px' }}
-        />
-      ))}
-    </div>
+  // Use refs for values that don't need to trigger re-renders
+  const startTime = useRef<number>(0);
+  const animationFrameId = useRef<number>();
+  const lastUpdate = useRef<number>(0);
+  const prevState = useRef({ isListening: false, isSpeaking: false });
+
+  // Optimize animation effect
+  useEffect(() => {
+    animationFrameId.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+    };
+  }, [animate]);
+
+  // Memoize Visualizer component
+  const Visualizer = useMemo(() => {
+    return () => (
+      <div className="flex justify-center items-center h-32 space-x-1">
+        {visualizerData.map((height, index) => (
+          <motion.div
+            key={index}
+            initial={false} // Disable initial animation
+            animate={{
+              height: `${height}%`,
+              transition: { type: 'spring', damping: 10 },
+            }}
+            className={`w-2 rounded-full ${
+              isListening
+                ? 'bg-blue-500 animate-pulse'
+                : isSpeaking
+                ? 'bg-green-500 animate-pulse'
+                : 'bg-gray-600'
+            }`}
+            style={{ minHeight: '4px' }}
+          />
+        ))}
+      </div>
+    );
+  }, [visualizerData, isListening, isSpeaking]);
+
+  // Create a properly typed debounced function
+  const debouncedSetTextInput = useMemo(
+    () => debounce((value: string) => setTextInput(value), 100),
+    []
   );
 
   // Process NLP Response
@@ -451,8 +483,13 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     }
   };
 
+  // Use the debounced function in the input handler
+  const handleTextInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    debouncedSetTextInput(e.target.value);
+  };
+
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -578,7 +615,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                 <input
                   type="text"
                   value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
+                  onChange={handleTextInputChange}
                   className={`w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 
                            focus:outline-none focus:border-white/20 focus:ring-2 focus:ring-white/10 transition-all duration-200
                            ${customStyles?.input || ''}`}
@@ -625,5 +662,5 @@ declare global {
   }
 }
 
-export default VoiceAssistantModal; 
+export default memo(VoiceAssistantModal); 
 
