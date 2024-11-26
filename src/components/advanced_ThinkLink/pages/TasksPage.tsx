@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, memo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiSend,
@@ -112,13 +112,20 @@ const TasksPage: React.FC = () => {
     setTimeout(scrollToBottom, 100);
   };
 
-  // Memoize the stats calculation
+  // Optimize task filtering by memoizing filtered lists
+  const filteredTasks = useMemo(() => ({
+    done: tasks.filter(t => t.status === 'done'),
+    pending: tasks.filter(t => t.status === 'pending'),
+    highPriority: tasks.filter(t => t.priority === 'high')
+  }), [tasks]);
+
+  // Memoize taskStats using the filtered lists
   const taskStats = useMemo(() => ({
     total: tasks.length,
-    completed: tasks.filter(t => t.status === 'done').length,
-    pending: tasks.filter(t => t.status === 'pending').length,
-    highPriority: tasks.filter(t => t.priority === 'high').length,
-  }), [tasks]);
+    completed: filteredTasks.done.length,
+    pending: filteredTasks.pending.length,
+    highPriority: filteredTasks.highPriority.length,
+  }), [tasks.length, filteredTasks]);
 
   // Memoize the glass style
   const glassStyle = useMemo(() => ({
@@ -129,8 +136,29 @@ const TasksPage: React.FC = () => {
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
   }), []);
 
-  // Extract TaskItem into a separate memoized component
-  const TaskItem = memo(({ task }: { task: Task }) => (
+  // Optimize TaskItem by moving state handlers to useCallback
+  const toggleTaskStatus = useCallback((id: string) => {
+    setTasks(prevTasks => prevTasks.map(task => 
+      task.id === id ? { ...task, status: task.status === 'pending' ? 'done' : 'pending' } : task
+    ));
+  }, []);
+
+  const deleteTask = useCallback((id: string) => {
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+  }, []);
+
+  const editTask = useCallback((id: string, newContent: string) => {
+    if (!nlpModel.current) return;
+    const updatedContent = nlpModel.current.extractTaskContent(newContent.split(' '));
+    if (updatedContent) {
+      setTasks(prevTasks => prevTasks.map(t => 
+        t.id === id ? { ...t, content: updatedContent } : t
+      ));
+    }
+  }, []);
+
+  // Optimize TaskItem component
+  const TaskItem = useMemo(() => memo(({ task }: { task: Task }) => (
     <motion.div
       layout
       initial={{ opacity: 0, y: 20 }}
@@ -175,13 +203,8 @@ const TasksPage: React.FC = () => {
           <button 
             onClick={() => {
               const newContent = prompt("Edit task:", task.content);
-              if (newContent && nlpModel.current) {
-                const updatedContent = nlpModel.current.extractTaskContent(newContent.split(' '));
-                if (updatedContent) {
-                  setTasks(prevTasks => prevTasks.map(t => 
-                    t.id === task.id ? { ...t, content: updatedContent } : t
-                  ));
-                }
+              if (newContent) {
+                editTask(task.id, newContent);
               }
             }}
             className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-all"
@@ -197,16 +220,22 @@ const TasksPage: React.FC = () => {
         </div>
       </div>
     </motion.div>
-  ));
+  )), [glassStyle, editTask, toggleTaskStatus, deleteTask]);
 
-  // Optimize the tasks list rendering
-  const TasksList = memo(() => (
-    <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 pr-2 md:pr-4 custom-scrollbar">
-      {tasks.map((task) => (
-        <TaskItem key={task.id} task={task} />
-      ))}
-    </div>
-  ));
+  // Optimize TasksList with virtualization
+  const TasksList = useMemo(() => memo(() => {
+    const itemHeight = 80; // Approximate height of each task item
+    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const itemsToRender = Math.ceil(windowHeight / itemHeight) + 2; // Add buffer
+
+    return (
+      <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 pr-2 md:pr-4 custom-scrollbar">
+        {tasks.slice(0, itemsToRender).map((task) => (
+          <TaskItem key={task.id} task={task} />
+        ))}
+      </div>
+    );
+  }), [tasks, TaskItem]);
 
   // Optimize messages list with windowing if needed
   const MessagesList = memo(() => (
@@ -233,18 +262,6 @@ const TasksPage: React.FC = () => {
       <div ref={messagesEndRef} />
     </div>
   ));
-
-  // Handle task status toggle
-  const toggleTaskStatus = (id: string) => {
-    setTasks(prevTasks => prevTasks.map(task => 
-      task.id === id ? { ...task, status: task.status === 'pending' ? 'done' : 'pending' } : task
-    ));
-  };
-
-  // Handle task deletion
-  const deleteTask = (id: string) => {
-    setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
-  };
 
   return (
     <div className="h-full flex flex-col space-y-4 md:space-y-6">
