@@ -105,7 +105,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [textInput, setTextInput] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [accumulatedTranscript, setAccumulatedTranscript] = useState('');
+  const [audioLevel, setAudioLevel] = useState<number>(0);
 
   // Load voices on component mount
   useEffect(() => {
@@ -260,16 +260,68 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     };
   }, [animate]);
 
+  // Add audio analyzer setup
+  useEffect(() => {
+    let audioContext: AudioContext | null = null;
+    let analyzer: AnalyserNode | null = null;
+    let dataArray: Uint8Array | null = null;
+    let mediaStream: MediaStream | null = null;
+
+    const setupAudioAnalyzer = async () => {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new AudioContext();
+        analyzer = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(mediaStream);
+        
+        analyzer.fftSize = 32;
+        source.connect(analyzer);
+        dataArray = new Uint8Array(analyzer.frequencyBinCount);
+
+        const updateLevel = () => {
+          if (analyzer && dataArray && isListening) {
+            analyzer.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            setAudioLevel(average);
+            requestAnimationFrame(updateLevel);
+          }
+        };
+
+        updateLevel();
+      } catch (error) {
+        console.error('Error setting up audio analyzer:', error);
+        setError('Failed to access microphone');
+      }
+    };
+
+    if (isListening) {
+      setupAudioAnalyzer();
+    }
+
+    return () => {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+      if (audioContext) {
+        audioContext.close();
+      }
+    };
+  }, [isListening]);
+
   // Memoize Visualizer component
   const Visualizer = useMemo(() => {
     return () => (
       <div className="flex justify-center items-center h-32 space-x-1">
-        {visualizerData.map((height, index) => (
+        {visualizerData.map((_, index) => (
           <motion.div
             key={index}
-            initial={false} // Disable initial animation
+            initial={false}
             animate={{
-              height: `${height}%`,
+              height: isListening 
+                ? `${Math.max(20, audioLevel + Math.random() * 20)}%`
+                : isSpeaking
+                ? '60%'
+                : '10%',
               transition: { type: 'spring', damping: 10 },
             }}
             className={`w-2 rounded-full ${
@@ -284,7 +336,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         ))}
       </div>
     );
-  }, [visualizerData, isListening, isSpeaking]);
+  }, [visualizerData, isListening, isSpeaking, audioLevel]);
 
   // Create a properly typed debounced function
   const debouncedSetTextInput = useMemo(
@@ -324,12 +376,16 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
             const transcript = event.results[i][0].transcript;
 
             if (event.results[i].isFinal) {
-              // Use the transcript for NLP mode
+              // Process final results immediately
               if (isNLPMode) {
-                setAccumulatedTranscript(prev => prev + transcript + ' ');
+                processNLPResponse(transcript.trim());
+              } else {
+                handleTranscript(transcript.trim());
               }
+              // Clear the text input after processing
+              setTextInput('');
             } else {
-              // Update text input with interim results
+              // Show interim results in the text input
               setTextInput(transcript);
             }
           }
@@ -338,12 +394,14 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         recognition.onend = () => {
           console.log('Speech recognition ended');
           
-          if (isNLPMode && accumulatedTranscript.trim()) {
-            processNLPResponse(accumulatedTranscript.trim());
-            setAccumulatedTranscript('');
+          // Only restart if still in listening mode
+          if (isListening && recognition) {
+            try {
+              recognition.start();
+            } catch (error) {
+              console.error('Error restarting recognition:', error);
+            }
           }
-          
-          setIsListening(false);
         };
 
         try {
@@ -362,10 +420,14 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
 
     return () => {
       if (recognition) {
-        recognition.stop();
+        try {
+          recognition.stop();
+        } catch (error) {
+          console.error('Error stopping recognition:', error);
+        }
       }
     };
-  }, [isListening, isNLPMode, accumulatedTranscript, processNLPResponse]);
+  }, [isListening, isNLPMode, handleTranscript, processNLPResponse]);
 
   // NLP Mode Toggle Button
   const handleNLPModeToggle = () => {
@@ -375,7 +437,6 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     
     if (!isNLPMode) {
       setIsListening(true);
-      setAccumulatedTranscript('');
     } else {
       setIsListening(false);
     }
@@ -472,20 +533,32 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     }
   };
 
-  // Update the main control button click handler
+  // Update handleMicrophoneClick to handle continuous conversation
   const handleMicrophoneClick = () => {
     if (isSpeaking || isProcessing) return;
     
     if (isListening) {
-      setIsListening(false); // This will stop the recognition
+      setIsListening(false);
+      window.speechSynthesis.cancel(); // Stop any ongoing speech
     } else {
-      setIsListening(true); // This will start the recognition
+      setIsListening(true);
+      setError(null);
     }
   };
 
   // Use the debounced function in the input handler
   const handleTextInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     debouncedSetTextInput(e.target.value);
+  };
+
+  // Update the status display
+  const getStatusText = () => {
+    if (error) return error;
+    if (isProcessing) return 'Processing...';
+    if (isListening && isSpeaking) return 'Listening and Speaking...';
+    if (isListening) return 'Listening...';
+    if (isSpeaking) return 'Speaking...';
+    return 'Ready';
   };
 
   return (
@@ -527,12 +600,42 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
 
             {/* Main Content */}
             <div className="p-6">
-              {/* Visualizer */}
+              {/* Enhanced Visualizer */}
               <div className="relative h-24 mb-6">
                 <Visualizer />
+                {isListening && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+                  >
+                    <div className="relative">
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.5, 0.8, 0.5],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                        className="absolute inset-0 bg-blue-500/20 rounded-full"
+                        style={{
+                          width: '50px',
+                          height: '50px',
+                        }}
+                      />
+                      <div className="relative z-10 bg-blue-500 rounded-full p-3">
+                        <FiMic className="text-white" size={24} />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
-              {/* Status and Controls */}
+              {/* Enhanced Status Display */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
                   <motion.div
@@ -550,17 +653,7 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                     }`}
                   />
                   <span className="text-sm text-white/70">
-                    {isNLPMode 
-                      ? 'NLP Mode: Listening...' 
-                      : (isListening
-                        ? 'Listening...'
-                        : isSpeaking
-                        ? 'Speaking...'
-                        : isProcessing
-                        ? 'Processing...'
-                        : error
-                        ? error
-                        : 'Ready')}
+                    {getStatusText()}
                   </span>
                 </div>
 
