@@ -193,57 +193,173 @@ export function cosineSimilarity(vecA: number[], vecB: number[]): number {
   return dotProduct / (magnitudeA * magnitudeB) || 0;
 }
 
-// Modify findBestMatch to prioritize exact matches
-export function findBestMatch(query: string, trainingData: TrainingData[], threshold: number = 0.3): string {
-  // First, try to find an exact match (case-insensitive)
-  const normalizedQuery = normalizeText(query);
-  const exactMatch = trainingData.find(entry => 
-    normalizeText(entry.input) === normalizedQuery
-  );
-  
-  if (exactMatch) {
-    return exactMatch.output;
-  }
-
-  // If no exact match, then try pattern matching
-  const patternMatch = trainingData.find(entry => {
-    const pattern = new RegExp(normalizeText(entry.input), 'i');
-    return pattern.test(normalizedQuery);
-  });
-
-  if (patternMatch) {
-    return patternMatch.output;
-  }
-
-  // If no pattern match, fall back to cosine similarity
-  const queryVector = vectorizeSingleInput(query, Array.from(new Set(trainingData.map(d => d.input.split(' ')).flat())));
-  let bestMatch = { similarity: 0, response: '' };
-
-  trainingData.forEach(entry => {
-    const entryVector = vectorizeSingleInput(entry.input, Array.from(new Set(trainingData.map(d => d.input.split(' ')).flat())));
-    const similarity = cosineSimilarity(queryVector, entryVector);
-    
-    if (similarity > bestMatch.similarity) {
-      bestMatch = { similarity, response: entry.output };
-    }
-  });
-
-  return bestMatch.similarity >= threshold ? bestMatch.response : "I'm not sure how to respond to that.";
+// Add interface for match results
+interface MatchResult {
+  response: string;
+  confidence: number;
+  matchType: 'exact' | 'pattern' | 'partial' | 'similarity';
 }
 
-// Helper function to vectorize a single input
-function vectorizeSingleInput(input: string, vocabulary: string[]): number[] {
-  const vector = new Array(vocabulary.length).fill(0);
-  const words = input.toLowerCase().split(/[\s.,!?]+/).filter(word => word.length > 1);
-  
-  words.forEach(word => {
-    const index = vocabulary.indexOf(word);
-    if (index !== -1) {
-      vector[index]++;
-    }
+// Add JARVIS-level recognition patterns interface
+interface RecognitionPattern {
+  type: 'exact' | 'variation' | 'semantic' | 'contextual' | 'behavioral' | 'emotional';
+  pattern: string;
+  weight?: number;
+  confidence?: number;
+  context?: string[];
+}
+
+// Add JARVIS response interface
+interface JarvisResponse extends MatchResult {
+  context?: string[];
+  mood?: string;
+  certainty?: number;
+  suggestions?: string[];
+}
+
+// Enhanced findBestMatch with recognition patterns
+export function findBestMatch(query: string, trainingData: TrainingData[], threshold: number = 0.3): string {
+  const normalizedQuery = normalizeText(query);
+  const matches: JarvisResponse[] = [];
+  const context: string[] = [];
+
+  // JARVIS-level pattern recognition system
+  trainingData.forEach(entry => {
+    const baseInput = normalizeText(entry.input);
+    
+    // Create advanced recognition patterns with contextual awareness
+    const patterns: RecognitionPattern[] = [
+      { type: 'exact', pattern: baseInput, weight: 1.0, context: ['direct'] },
+      { type: 'variation', pattern: baseInput.replace(/[.,!?]/g, ''), weight: 0.95, context: ['normalized'] },
+      { type: 'semantic', pattern: baseInput.split(/\s+/).sort().join(' '), weight: 0.9, context: ['reordered'] },
+      { type: 'contextual', pattern: baseInput.replace(/\b(what|how|why|when|where|who)\b/gi, ''), weight: 0.85, context: ['question'] },
+      { type: 'behavioral', pattern: baseInput.replace(/\b(can|could|would|should)\b/gi, ''), weight: 0.8, context: ['capability'] },
+      { type: 'emotional', pattern: baseInput.replace(/\b(feel|think|believe|want|need|like|love|hate)\b/gi, ''), weight: 0.75, context: ['emotional'] },
+      
+      // Advanced contextual patterns
+      { type: 'semantic', pattern: extractKeyPhrases(baseInput), weight: 0.85, context: ['key-phrases'] },
+      { type: 'behavioral', pattern: analyzeSentiment(baseInput), weight: 0.8, context: ['sentiment'] },
+      { type: 'contextual', pattern: detectIntent(baseInput), weight: 0.9, context: ['intent'] }
+    ];
+
+    // Enhanced pattern matching with context awareness
+    patterns.forEach(p => {
+      const normalizedPattern = normalizeText(p.pattern.trim());
+      const matchScore = calculateMatchScore(normalizedQuery, normalizedPattern);
+      
+      if (matchScore > threshold) {
+        matches.push({
+          response: entry.output,
+          confidence: matchScore * (p.weight || 1),
+          matchType: p.type === 'exact' ? 'exact' : 'pattern',
+          context: p.context,
+          certainty: matchScore,
+          suggestions: generateSuggestions(p.context || [])
+        });
+        context.push(...(p.context || []));
+      }
+    });
   });
+
+  // Process high-confidence matches with JARVIS-like intelligence
+  const highConfidenceMatches = matches.filter(m => m.confidence > 0.8);
+  if (highConfidenceMatches.length > 0) {
+    const bestMatch = highConfidenceMatches.sort((a, b) => b.confidence - a.confidence)[0];
+    return enhanceResponse(bestMatch.response, bestMatch.context || []);
+  }
+
+  // Continue with existing fallback logic but with JARVIS-like enhancements
+  return generateJarvisResponse(query);
+}
+
+// Helper functions for JARVIS-like behavior
+function extractKeyPhrases(text: string): string {
+  // Advanced key phrase extraction
+  const phrases = text.match(/\b\w+(?:\s+\w+){1,3}\b/g) || [];
+  return phrases.join(' ');
+}
+
+function analyzeSentiment(text: string): string {
+  // Sentiment analysis implementation
+  const sentimentWords = {
+    positive: /\b(good|great|awesome|excellent|happy|love|wonderful|fantastic)\b/gi,
+    negative: /\b(bad|terrible|awful|horrible|sad|hate|poor|wrong)\b/gi
+  };
   
-  return vector;
+  const positiveCount = (text.match(sentimentWords.positive) || []).length;
+  const negativeCount = (text.match(sentimentWords.negative) || []).length;
+  
+  return positiveCount > negativeCount ? 'positive' : 
+         negativeCount > positiveCount ? 'negative' : 'neutral';
+}
+
+function detectIntent(text: string): string {
+  // Intent detection implementation
+  const intents = {
+    question: /\b(what|how|why|when|where|who)\b/i,
+    command: /\b(do|make|create|show|tell|find|help)\b/i,
+    statement: /\b(is|are|was|were|will|would)\b/i
+  };
+  
+  for (const [intent, pattern] of Object.entries(intents)) {
+    if (pattern.test(text)) return intent;
+  }
+  return 'unknown';
+}
+
+function calculateMatchScore(query: string, pattern: string): number {
+  // Enhanced matching score calculation
+  const exactMatch = query === pattern;
+  const containsMatch = query.includes(pattern) || pattern.includes(query);
+  const wordMatch = query.split(' ').some(word => pattern.includes(word));
+  
+  if (exactMatch) return 1;
+  if (containsMatch) return 0.9;
+  if (wordMatch) return 0.7;
+  return 0;
+}
+
+function generateSuggestions(context: string[]): string[] {
+  // Generate contextual suggestions based on context only
+  const suggestions: string[] = [];
+  
+  if (context.includes('question')) {
+    suggestions.push('Would you like me to elaborate on that?');
+  }
+  if (context.includes('capability')) {
+    suggestions.push('I can help you with similar tasks as well.');
+  }
+  if (context.includes('emotional')) {
+    suggestions.push('Would you like to discuss this further?');
+  }
+  
+  return suggestions;
+}
+
+function enhanceResponse(response: string, context: string[]): string {
+  // Add JARVIS-like personality to responses
+  if (context.includes('emotional')) {
+    response = `I understand this is important to you. ${response}`;
+  }
+  if (context.includes('question')) {
+    response = `Let me assist you with that. ${response}`;
+  }
+  return response;
+}
+
+function generateJarvisResponse(query: string): string {
+  // Generate JARVIS-style fallback responses
+  if (query.toLowerCase().includes('how')) {
+    return "Sir, I understand you're inquiring about a process. Could you provide more specific parameters for me to assist you better?";
+  }
+  if (query.toLowerCase().includes('what')) {
+    return "If I may, sir, I'll need additional context to provide you with accurate information about that.";
+  }
+  if (query.toLowerCase().includes('why')) {
+    return "An interesting inquiry, sir. Would you like me to analyze the causality of this situation?";
+  }
+  
+  return "I apologize, sir, but I need more information to provide you with a proper response. How may I refine my assistance?";
 }
 
 // Add a function to generate code based on instructions
