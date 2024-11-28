@@ -423,5 +423,9 @@
   {
     "input": "What's your favorite animal?",
     "output": "I don't have favorites, but I can provide information about many different animals and their behaviors."
+  },
+  {
+    "input":"hi",
+    "output":"hi ! what's up "
   }
 ]

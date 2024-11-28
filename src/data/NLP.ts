@@ -125,20 +125,10 @@ function normalizeText(text: string): string {
     .trim();
 }
 
-function shuffleData<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
 function splitData(data: TrainingData[], trainRatio: number): { trainingSet: TrainingData[]; testingSet: TrainingData[] } {
-  const shuffled = shuffleData(data);
-  const trainSize = Math.floor(shuffled.length * trainRatio);
-  const trainingSet = shuffled.slice(0, trainSize);
-  const testingSet = shuffled.slice(trainSize);
+  const trainSize = Math.floor(data.length * trainRatio);
+  const trainingSet = data.slice(0, trainSize);
+  const testingSet = data.slice(trainSize);
   return { trainingSet, testingSet };
 }
 
@@ -203,8 +193,29 @@ export function cosineSimilarity(vecA: number[], vecB: number[]): number {
   return dotProduct / (magnitudeA * magnitudeB) || 0;
 }
 
-// Add a function to find the best matching response
+// Modify findBestMatch to prioritize exact matches
 export function findBestMatch(query: string, trainingData: TrainingData[], threshold: number = 0.3): string {
+  // First, try to find an exact match (case-insensitive)
+  const normalizedQuery = normalizeText(query);
+  const exactMatch = trainingData.find(entry => 
+    normalizeText(entry.input) === normalizedQuery
+  );
+  
+  if (exactMatch) {
+    return exactMatch.output;
+  }
+
+  // If no exact match, then try pattern matching
+  const patternMatch = trainingData.find(entry => {
+    const pattern = new RegExp(normalizeText(entry.input), 'i');
+    return pattern.test(normalizedQuery);
+  });
+
+  if (patternMatch) {
+    return patternMatch.output;
+  }
+
+  // If no pattern match, fall back to cosine similarity
   const queryVector = vectorizeSingleInput(query, Array.from(new Set(trainingData.map(d => d.input.split(' ')).flat())));
   let bestMatch = { similarity: 0, response: '' };
 
